@@ -67,6 +67,7 @@ public partial class MainWindow : Window
         if (_config.FontPickerVersion < 1) { _config.FontFamily = FontCatalog.Inter; _config.FontPickerVersion = 1; try { _store.Save(_config); } catch (Exception) { } }
         ThemeManager.ApplyFont(_config.FontFamily);
         InitializeComponent();
+        InitializeDownloads();
         GlassBackdrop.Configure(this, text => GlassStatus.Text = text);
         HomePage.NewChatRequested += NewChat_Click;
         HomePage.QuickBarRequested += (_, _) => ToggleQuickBar();
@@ -133,7 +134,7 @@ public partial class MainWindow : Window
             else Dispatcher.UIThread.Post(() => { if (IsVisible && _mode == HudMode.MINIMIZED_ORB) ToggleQuickBar(); });
         };
         PropertyChanged += (_, e) => { if (e.Property == WindowStateProperty && WindowState == WindowState.Minimized) SetMode(HudMode.MINIMIZED_ORB); };
-        Closed += async (_, _) => { _generation?.Cancel(); _mini?.Close(); _spinner.Stop(); _tip.Stop(); _focusTimer.Stop(); _hotkeys?.Dispose(); _markdown?.Dispose(); await _engine.Mcp.DisposeAsync(); await Task.Run(_engine.Dispose); };
+        Closed += async (_, _) => { _generation?.Cancel(); _modelDownloadCancellation?.Cancel(); _updateCancellation?.Cancel(); _mini?.Close(); _spinner.Stop(); _tip.Stop(); _focusTimer.Stop(); _hotkeys?.Dispose(); _markdown?.Dispose(); await _engine.Mcp.DisposeAsync(); await Task.Run(_engine.Dispose); };
         if (autoLoadModel && _config.ActiveProvider == "Local" && _engine.LocalModels.Count > 0)
             ModelComboBox.SelectedItem = _engine.LocalModels.Contains(_config.PreferredLocalModel) ? _config.PreferredLocalModel : _engine.LocalModels[0];
         _ = RefreshAppsAsync();

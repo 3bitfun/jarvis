@@ -4,7 +4,9 @@ In Settings → Engine, select a provider, enter its API key and base URL, then 
 
 NVIDIA NIM, Groq, OpenRouter, and Custom OpenAI use the configured base URL's `/models` endpoint. Gemini uses its models API, follows pagination, and lists models that support `generateContent`. Listing uses the key currently entered in settings, including before saving it.
 
-For local models, download a complete llama.cpp-compatible GGUF chat/instruct model. Select **Import GGUF** to copy it into the app's models folder, or **Open models folder** to copy the file yourself. Select Local, refresh, and choose the file to load it. Debug and published builds each look beside their own executable; use the path shown in settings. Archives, safetensors, and split downloads are not supported by the importer. The current local engine uses CPU inference, and RAM must cover weights plus context.
+For local models, use **Settings → Engine → Download a local model** to choose a curated GGUF or paste a direct HTTPS link ending in `.gguf`. The app shows progress and can cancel a download. It checks the GGUF header and removes partial files after failure or cancellation. You can still select **Import GGUF** to copy a file from disk, or **Open models folder** to copy one yourself. Select Local, refresh, and choose the file to load it. Debug and published builds each look beside their own executable; use the path shown in settings. Archives, safetensors, and split downloads are not supported. The current local engine uses CPU inference, and RAM must cover weights plus context. Check the model publisher's license and suitability before downloading.
+
+**Settings → About → Check for updates** checks the latest published GitHub release. When a newer Windows installer is available, **Download and install update** downloads it into the local app-data updates folder, verifies the SHA-256 from GitHub release metadata, opens setup, and closes J.A.R.V.I.S. Draft releases are not offered. The app does not install updates automatically.
 
 Type `/` in the composer for a clickable command menu:
 

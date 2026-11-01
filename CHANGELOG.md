@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 1.2.0 — 2026-11-01
+
+- Added an in-app updater under Settings → About. It checks published GitHub releases, downloads the Windows installer on request, verifies its release SHA-256, and opens setup.
+- Added curated local GGUF downloads and a custom direct GGUF URL field under Settings → Engine, with progress, cancellation, header validation, and cleanup of partial downloads.
+- Kept local file import and manual models-folder copying for custom GGUF files.
+
 ## 1.1.1 — 2026-11-01
 
 - Added an original set of 46 icons with SVG sources and 276 transparent PNG exports for light/dark backgrounds.

@@ -156,6 +156,12 @@ public partial class MainWindow
             await using (var source = await file.OpenReadAsync())
             await using (var target = new FileStream(temporary, FileMode.CreateNew, FileAccess.Write, FileShare.None, 81920, true))
             { await source.CopyToAsync(target); }
+            await using (var check = File.OpenRead(temporary))
+            {
+                var header = new byte[4];
+                if (check.Length < 1024 || await check.ReadAsync(header) != 4 || !header.AsSpan().SequenceEqual("GGUF"u8))
+                    throw new InvalidDataException("The selected file is not a complete GGUF model.");
+            }
             File.Move(temporary, destination); temporary = null; RefreshModels();
             ShowNotice("Imported " + name + ". Choose Local as your provider, then select the model to load it.");
         }

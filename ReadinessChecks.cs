@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 using System.Text;
+using System.Security.Cryptography;
 
 namespace JARVIS;
 
@@ -42,7 +43,9 @@ internal static class ReadinessChecks
         try { await HttpPayload.ReadTextAsync(oversized, 100, CancellationToken.None); throw new Exception("Oversized HTTP payload accepted"); }
         catch (InvalidDataException) { }
         await CheckModelFetchAsync();
-        Console.WriteLine("Passed: single-instance activation, chat/settings recovery, private sessions, deletion and backup purge, settings normalization, skill budgeting, HTTP response bounds, and model lists for all five providers including Gemini pagination and auth errors.");
+        await CheckGgufDownloadAsync(root);
+        await CheckUpdateDownloadAsync();
+        Console.WriteLine("Passed: single-instance activation, chat/settings recovery, private sessions, deletion and backup purge, settings normalization, skill budgeting, HTTP response bounds, provider model lists, GGUF download validation, and installer hash verification.");
     }
     private static void CheckInstance()
     {
@@ -93,4 +96,62 @@ internal static class ReadinessChecks
         await server.WaitAsync(timeout.Token);
     }
     private static void Require(bool condition, string message) { if (!condition) throw new InvalidOperationException(message); }
+
+    private static async Task CheckGgufDownloadAsync(string root)
+    {
+        var socket = new TcpListener(IPAddress.Loopback, 0); socket.Start();
+        var port = ((IPEndPoint)socket.LocalEndpoint).Port; socket.Stop();
+        using var listener = new HttpListener(); listener.Prefixes.Add($"http://localhost:{port}/"); listener.Start();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        var payload = new byte[2048]; "GGUF"u8.CopyTo(payload);
+        var server = Task.Run(async () =>
+        {
+            for (var i = 0; i < 2; i++)
+            {
+                var context = await listener.GetContextAsync().WaitAsync(timeout.Token);
+                var bytes = context.Request.RawUrl!.Contains("bad") ? new byte[2048] : payload;
+                context.Response.ContentLength64 = bytes.Length;
+                await context.Response.OutputStream.WriteAsync(bytes, timeout.Token);
+                context.Response.Close();
+            }
+        }, timeout.Token);
+        var directory = Path.Combine(root, "download-models");
+        var downloader = new ModelDownloadService();
+        var saved = await downloader.DownloadAsync($"http://localhost:{port}/good.gguf", directory, token: timeout.Token);
+        Require(File.Exists(saved) && new FileInfo(saved).Length == payload.Length, "Valid GGUF was not saved");
+        try { await downloader.DownloadAsync($"http://localhost:{port}/bad.gguf", directory, token: timeout.Token); throw new Exception("Invalid GGUF accepted"); }
+        catch (InvalidDataException) { }
+        Require(!Directory.EnumerateFiles(directory, "*.download").Any() && !File.Exists(Path.Combine(directory, "bad.gguf")), "Rejected GGUF left partial files");
+        await server.WaitAsync(timeout.Token);
+    }
+
+    private static async Task CheckUpdateDownloadAsync()
+    {
+        var socket = new TcpListener(IPAddress.Loopback, 0); socket.Start();
+        var port = ((IPEndPoint)socket.LocalEndpoint).Port; socket.Stop();
+        using var listener = new HttpListener(); listener.Prefixes.Add($"http://localhost:{port}/"); listener.Start();
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+        var payload = Enumerable.Range(0, 4096).Select(i => (byte)(i % 251)).ToArray();
+        var server = Task.Run(async () =>
+        {
+            for (var i = 0; i < 2; i++)
+            {
+                var context = await listener.GetContextAsync().WaitAsync(timeout.Token);
+                context.Response.ContentLength64 = payload.Length;
+                await context.Response.OutputStream.WriteAsync(payload, timeout.Token);
+                context.Response.Close();
+            }
+        }, timeout.Token);
+        var digest = Convert.ToHexString(SHA256.HashData(payload));
+        var good = new AvailableUpdate(new Version(99, 0), "v99.0", "", new Uri($"http://localhost:{port}/installer"),
+            "JARVIS-Setup-99.0-win-x64.exe", payload.Length, digest);
+        var service = new AppUpdateService();
+        var saved = await service.DownloadAsync(good, token: timeout.Token);
+        Require(File.Exists(saved) && SHA256.HashData(File.ReadAllBytes(saved)).SequenceEqual(SHA256.HashData(payload)), "Verified installer was not saved");
+        File.Delete(saved);
+        try { await service.DownloadAsync(good with { Sha256 = new string('0', 64) }, token: timeout.Token); throw new Exception("Invalid installer digest accepted"); }
+        catch (InvalidDataException) { }
+        Require(!File.Exists(saved), "Rejected installer remained on disk");
+        await server.WaitAsync(timeout.Token);
+    }
 }

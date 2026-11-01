@@ -4,7 +4,7 @@ A C# / .NET 8 Avalonia desktop assistant with local GGUF and cloud providers, a 
 
 Version 1.1.0 adds tray access, single-instance launch handling, first-run setup, encrypted drafts, recovery backups, richer Markdown, and dedicated image-service settings. See [release notes and checks](RELEASE.md) and [the changelog](CHANGELOG.md).
 
-Version 1.1.1 adds an original vector icon system, matching SVG/PNG exports, and a new app mark. Browse [the icon library](Assets/Icons/README.md), or run `scripts/Export-Icons.ps1` to regenerate the assets and a ZIP under `dist/design`.
+Version 1.2.0 adds an in-app updater and GGUF downloader. Version 1.1.1 added an original vector icon system, matching SVG/PNG exports, and a new app mark. Browse [the icon library](Assets/Icons/README.md), or run `scripts/Export-Icons.ps1` to regenerate the assets and a ZIP under `dist/design`.
 
 ## Develop
 
@@ -21,9 +21,9 @@ The core UI styles are in [Styles/Controls.axaml](Styles/Controls.axaml). See [t
 
 ## Models and providers
 
-Use Settings → Engine to configure a cloud provider or import a local GGUF. [Models and slash commands](MODELS-AND-COMMANDS.md) describes provider model fetching, custom slugs, GGUF import, and the command menu. [MCP and skills](MCP.md) explains connected tools and local guidance.
+Use Settings → Engine to configure a cloud provider, download a curated or custom GGUF, or import one from disk. Settings → About checks published releases and offers a verified installer download. [Models and slash commands](MODELS-AND-COMMANDS.md) describes provider model fetching, custom slugs, GGUF downloads, and the command menu. [MCP and skills](MCP.md) explains connected tools and local guidance.
 
-Downloaded models are excluded from Git. A fresh clone contains an empty `models` folder; copy a GGUF there or use the in-app importer. Runtime credentials, chats, and memory are stored outside the repository in the user's local app data folder.
+Downloaded models are excluded from Git. A fresh clone contains an empty `models` folder; copy a GGUF there or use the in-app downloader/importer. Runtime credentials, chats, and memory are stored outside the repository in the user's local app data folder.
 
 ## Windows installer
 
