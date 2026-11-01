@@ -1,4 +1,4 @@
-<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" x:Class="JARVIS.MiniLauncherWindow"
+<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="using:JARVIS" x:Class="JARVIS.MiniLauncherWindow"
  Title="J.A.R.V.I.S. Pet Pill" Width="344" Height="72" CanResize="False" ShowInTaskbar="False" Topmost="True"
  Background="Transparent" TransparencyLevelHint="AcrylicBlur,Transparent" SystemDecorations="None" RequestedThemeVariant="Dark" FontFamily="{DynamicResource AppFont}">
  <Grid>
@@ -10,14 +10,14 @@
     <Border Background="{DynamicResource GlassHighlightBrush}" CornerRadius="{Binding CornerRadius, ElementName=PillShell}" IsHitTestVisible="False"/>
    <Grid RowDefinitions="54,*">
     <Grid x:Name="PillHeader" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10" Margin="14,0,10,0" PointerPressed="PillHeader_PointerPressed">
-     <Border Width="30" Height="30" CornerRadius="15" Background="{DynamicResource RaisedBrush}" VerticalAlignment="Center"><TextBlock Text="J" FontSize="18" FontWeight="SemiBold" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Border>
+     <Border Width="30" Height="30" CornerRadius="15" Background="{DynamicResource RaisedBrush}" VerticalAlignment="Center"><local:AppIcon Kind="logo" Width="20" Height="20" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center"/></Border>
      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="7" VerticalAlignment="Center"><Ellipse Width="5" Height="5" Fill="{DynamicResource AccentBrush}"/><TextBlock x:Name="PetStatus" Text="J.A.R.V.I.S. · Ready" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/></StackPanel>
-     <Button Grid.Column="2" Classes="quiet" Content="↗" Click="FullDeck_Click" Padding="7" ToolTip.Tip="Full deck · Alt+J"/>
-     <Button Grid.Column="3" Classes="quiet" Content="×" Click="CloseBar_Click" Padding="7" ToolTip.Tip="Hide pet"/>
+     <Button Grid.Column="2" Classes="quiet" AutomationProperties.Name="Full deck" Click="FullDeck_Click" Padding="7" ToolTip.Tip="Full deck · Alt+J"><local:AppIcon Kind="arrow-up-right"/></Button>
+     <Button Grid.Column="3" Classes="quiet" AutomationProperties.Name="Close" Click="CloseBar_Click" Padding="7" ToolTip.Tip="Hide pet"><local:AppIcon Kind="close"/></Button>
     </Grid>
     <Grid x:Name="PetBody" Grid.Row="1" IsVisible="False" RowDefinitions="Auto,*,Auto" Margin="14,0,14,12">
      <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,1" Padding="0,10">
-      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8"><TextBox x:Name="QueryBox" Watermark="Ask me anything, or find an app…" FontSize="16" Padding="8" BorderThickness="0" Background="Transparent" TextChanged="Query_Changed"/><Button x:Name="ClearButton" Grid.Column="1" Classes="quiet" Content="×" IsVisible="False" Click="Clear_Click" Padding="8"/></Grid>
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8"><TextBox x:Name="QueryBox" Watermark="Ask me anything, or find an app…" FontSize="16" Padding="8" BorderThickness="0" Background="Transparent" TextChanged="Query_Changed"/><Button x:Name="ClearButton" Grid.Column="1" Classes="quiet" AutomationProperties.Name="Clear search" IsVisible="False" Click="Clear_Click" Padding="8"><local:AppIcon Kind="close"/></Button></Grid>
      </Border>
      <Grid Grid.Row="1" RowDefinitions="Auto,*,Auto" Margin="0,10,0,8" RowSpacing="4">
       <Grid ColumnDefinitions="*,Auto" Margin="8,0"><TextBlock x:Name="SectionLabel" Classes="label" Text="Applications"/><TextBlock x:Name="ResultCount" Grid.Column="1" Classes="muted" FontSize="10"/></Grid>
@@ -26,14 +26,14 @@
         <Border Width="30" Height="30" CornerRadius="8" Background="{DynamicResource PanelBrush}"><Grid><TextBlock Text="{Binding App.Initial}" IsVisible="{Binding !App.HasIcon}" Foreground="{DynamicResource AccentBrush}" VerticalAlignment="Center" HorizontalAlignment="Center"/><Image Source="{Binding App.Icon}" IsVisible="{Binding App.HasIcon}" Width="24" Height="24"/></Grid></Border>
         <TextBlock Grid.Column="1" Text="{Binding App.Name}" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/>
         <Border Grid.Column="2" Classes="keycap" IsVisible="{Binding HasShortcut}" VerticalAlignment="Center"><TextBlock Text="{Binding Shortcut}" Classes="muted" FontSize="10"/></Border>
-        <Button Grid.Column="3" Classes="quiet" Content="{Binding FavoriteGlyph}" Click="Favorite_Click" Padding="5" ToolTip.Tip="Add or remove favorite"/>
+        <Button Grid.Column="3" Classes="quiet" Click="Favorite_Click" Padding="5" AutomationProperties.Name="Toggle favorite" ToolTip.Tip="Add or remove favorite"><local:AppIcon Kind="{Binding FavoriteIcon}"/></Button>
        </Grid></DataTemplate></ListBox.ItemTemplate>
       </ListBox>
       <StackPanel x:Name="EmptyState" Grid.Row="1" IsVisible="False" Spacing="8" Margin="12,16"><TextBlock Text="I'm here. What are we figuring out?" FontSize="15"/><TextBlock Text="No app matches — press Enter to chat." Classes="muted" FontSize="11"/></StackPanel>
       <ScrollViewer x:Name="ReplyScroll" Grid.Row="1" IsVisible="False" Margin="8"><StackPanel Spacing="10"><ProgressBar x:Name="ThinkingProgress" IsIndeterminate="True" Height="2" IsVisible="False"/><ContentControl x:Name="ReplyContent"/></StackPanel></ScrollViewer>
       <TextBlock x:Name="Status" Grid.Row="2" Classes="muted" TextWrapping="Wrap" FontSize="10" Margin="8,4"/>
      </Grid>
-     <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8"><TextBlock Text="Alt+1–5 launch · Ctrl+Enter ask · Esc tuck away" FontSize="10" Classes="muted" VerticalAlignment="Center"/><Button x:Name="AskButton" Classes="primary" Grid.Column="1" Content="Ask ↗" Click="Ask_Click" Padding="12,7"/></Grid>
+     <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8"><TextBlock Text="Alt+1–5 launch · Ctrl+Enter ask · Esc tuck away" FontSize="10" Classes="muted" VerticalAlignment="Center"/><Button x:Name="AskButton" Classes="primary" Grid.Column="1" AutomationProperties.Name="Ask" Click="Ask_Click" Padding="12,7"><StackPanel Orientation="Horizontal" Spacing="8"><local:AppIcon Kind="arrow-up"/><TextBlock Text="Ask" VerticalAlignment="Center"/></StackPanel></Button></Grid>
     </Grid>
    </Grid>
    </Grid>

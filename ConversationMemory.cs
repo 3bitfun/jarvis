@@ -6,6 +6,7 @@ public sealed record ChatTurn(string User, string Assistant, List<string>? Image
 public sealed record ChatInfo(string Id, string Title, bool IsPinned, string SearchText)
 {
     public string PinGlyph => IsPinned ? "★" : "☆";
+    public string PinIcon => IsPinned ? "pin-filled" : "pin";
     public override string ToString() => Title;
 }
 

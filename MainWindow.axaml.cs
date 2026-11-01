@@ -17,6 +17,7 @@ public partial class MainWindow : Window
     private sealed record AppSettingsItem(LaunchableApp App, bool IsFavorite)
     {
         public string FavoriteGlyph => IsFavorite ? "★  Favorite" : "☆  Favorite";
+        public string FavoriteIcon => IsFavorite ? "star-filled" : "star";
     }
     private sealed record McpServerListItem(McpServerProfile Profile, bool IsConnected)
     {
@@ -77,7 +78,8 @@ public partial class MainWindow : Window
         HomePage.OpenChat = OpenChat;
         HomePage.StartPrompt = prompt => { if (_busy) return; NewChat_Click(this, new RoutedEventArgs()); PromptBox.Text = prompt; PromptBox.Focus(); };
         DataContext = _engine; _engine.Config = _config;
-        SearchToggleButton.Content = _config.WebSearchEnabled ? "⌕  Search on" : "⌕  Search off";
+        SearchToggleButton.Content = AppIcon.Label("globe", _config.WebSearchEnabled ? "Search on" : "Search off");
+        Avalonia.Automation.AutomationProperties.SetName(SearchToggleButton, _config.WebSearchEnabled ? "Search on" : "Search off");
         SkillsList.ItemsSource = _engine.Skills.Skills;
         foreach (var skill in _engine.Skills.Skills) skill.Enabled = !_config.DisabledSkills.Contains(skill.Name, StringComparer.OrdinalIgnoreCase);
         SkillsStatus.Text = _engine.Skills.Skills.Count == 0 ? "No skills imported yet." : $"{_engine.Skills.Skills.Count} local skill(s)";
@@ -216,7 +218,8 @@ public partial class MainWindow : Window
         var chats = allChats.Where(c => c.SearchText.Contains(query, StringComparison.OrdinalIgnoreCase)).ToArray();
         ChatsList.ItemsSource = chats; ChatsList.SelectedItem = chats.FirstOrDefault(c => c.Id == _engine.ActiveChatId);
         var active = allChats.FirstOrDefault(c => c.Id == _engine.ActiveChatId);
-        ChatTitle.Text = active?.Title ?? "New chat"; ActivePinButton.Content = active?.IsPinned == true ? "★" : "☆";
+        ChatTitle.Text = active?.Title ?? "New chat"; ActivePinButton.Content = new AppIcon { Kind = active?.IsPinned == true ? "pin-filled" : "pin" };
+        Avalonia.Automation.AutomationProperties.SetName(ActivePinButton, active?.IsPinned == true ? "Unpin conversation" : "Pin conversation");
         ActivePinButton.IsVisible = ExportChatButton.IsVisible = ChatArea.IsVisible;
         _refreshing = false;
     }
@@ -381,7 +384,8 @@ public partial class MainWindow : Window
     {
         if (_busy) return;
         _config.WebSearchEnabled = !_config.WebSearchEnabled;
-        SearchToggleButton.Content = _config.WebSearchEnabled ? "⌕  Search on" : "⌕  Search off";
+        SearchToggleButton.Content = AppIcon.Label("globe", _config.WebSearchEnabled ? "Search on" : "Search off");
+        Avalonia.Automation.AutomationProperties.SetName(SearchToggleButton, _config.WebSearchEnabled ? "Search on" : "Search off");
         try { _store.Save(_config); StatusText.Text = _config.WebSearchEnabled ? "Web search enabled · results will be added to your next question" : "Web search disabled"; }
         catch (Exception ex) { StatusText.Text = "Could not save search setting: " + ex.Message; }
     }
@@ -437,7 +441,7 @@ public partial class MainWindow : Window
         header.Children.Add(new TextBlock { Text = author, FontSize = 11, FontWeight = FontWeight.SemiBold, Foreground = user ? Brushes.LightGray : this.FindResource("AccentBrush") as IBrush });
         if (!string.IsNullOrEmpty(raw))
         {
-            var copy = new Button { Content = "Copy", Padding = new Thickness(8, 3), FontSize = 11 };
+            var copy = new Button { Content = AppIcon.Label("copy", "Copy"), Padding = new Thickness(8, 3), FontSize = 11 };
             copy.Classes.Add("quiet"); Grid.SetColumn(copy, 1);
             copy.Click += async (_, _) =>
             {
@@ -462,10 +466,10 @@ public partial class MainWindow : Window
             welcome.Children.Add(new TextBlock { Text = "Your ideas, your context, your assistant. What would you like to work on?", TextWrapping = TextWrapping.Wrap, Foreground = this.FindResource("MutedBrush") as IBrush });
             foreach (var (title, prompt) in new[] { ("Plan something", "Help me turn an idea into a practical step-by-step plan."), ("Figure it out", "Help me think through a problem and choose a sensible next step."), ("Make it clearer", "Help me rewrite something so it is clear, concise, and easy to understand.") })
             {
-                var button = new Button { Content = title + "   ↗", HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch };
+                var button = new Button { Content = AppIcon.Label("arrow-up-right", title), HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch };
                 button.Click += (_, _) => { PromptBox.Text = prompt; PromptBox.Focus(); }; welcome.Children.Add(button);
             }
-            var knowledge = new Button { Content = "＋  Add your knowledge", HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left };
+            var knowledge = new Button { Content = AppIcon.Label("book", "Add your knowledge"), HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left };
             knowledge.Classes.Add("quiet"); knowledge.Click += (_, _) => { SettingsSplitView.IsPaneOpen = true; SettingsControls.SelectedIndex = 1; };
             welcome.Children.Add(knowledge); ChatLog.Children.Add(welcome);
         }
@@ -718,13 +722,13 @@ public partial class MainWindow : Window
         if (McpServersList.SelectedItem is McpServerListItem row)
         {
             LoadMcpProfileFields(row.Profile);
-            McpConnectButton.Content = row.IsConnected ? "Reconnect" : "Connect";
+            McpConnectButton.Content = AppIcon.Label(row.IsConnected ? "refresh" : "plug", row.IsConnected ? "Reconnect" : "Connect");
             McpDisconnectButton.IsEnabled = row.IsConnected;
             McpStatus.Text = row.IsConnected ? $"Connected to {row.Profile.Name}. Choose which tools J.A.R.V.I.S. may request." : "Select a server and connect to discover its tools.";
         }
         else
         {
-            McpConnectButton.Content = "Connect"; McpDisconnectButton.IsEnabled = false;
+            McpConnectButton.Content = AppIcon.Label("plug", "Connect"); McpDisconnectButton.IsEnabled = false;
             McpStatus.Text = "Add a curated server or configure your own below.";
         }
         _refreshingMcp = false;
@@ -743,7 +747,7 @@ public partial class MainWindow : Window
         if (_refreshingMcp || McpServersList.SelectedItem is not McpServerListItem row) return;
         var profile = row.Profile; _refreshingMcp = true; LoadMcpProfileFields(profile); _refreshingMcp = false;
         _refreshingMcp = true; McpToolsList.ItemsSource = _engine.Mcp.GetTools(); _refreshingMcp = false;
-        McpConnectButton.Content = row.IsConnected ? "Reconnect" : "Connect"; McpDisconnectButton.IsEnabled = row.IsConnected;
+        McpConnectButton.Content = AppIcon.Label(row.IsConnected ? "refresh" : "plug", row.IsConnected ? "Reconnect" : "Connect"); McpDisconnectButton.IsEnabled = row.IsConnected;
         McpStatus.Text = row.IsConnected ? $"Connected to {profile.Name}. Choose which tools J.A.R.V.I.S. may request." : "Disconnected. Connect to discover tools.";
     }
     private void LoadMcpProfileFields(McpServerProfile profile)

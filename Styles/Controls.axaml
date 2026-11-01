@@ -1,5 +1,8 @@
 <Styles xmlns="https://github.com/avaloniaui"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="using:JARVIS">
+  <Style Selector="local|AppIcon"><Setter Property="Foreground" Value="{DynamicResource TextBrush}"/></Style>
+  <Style Selector="Button.primary local|AppIcon"><Setter Property="Foreground" Value="#1C2413"/></Style>
+  <Style Selector="Button.primary TextBlock"><Setter Property="Foreground" Value="#1C2413"/></Style>
 
   <Styles.Resources>
     <CornerRadius x:Key="RadiusSm">10</CornerRadius>

@@ -3,7 +3,7 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
-    <Version>1.1.0</Version>
+    <Version>1.1.1</Version>
     <ApplicationIcon>Assets\Jarvis.ico</ApplicationIcon>
     <ImplicitUsings>enable</ImplicitUsings>
     <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>
@@ -12,6 +12,7 @@
     <AvaloniaResource Include="Assets\Fonts\**\*" />
     <AvaloniaResource Include="Assets\Jarvis.ico" />
     <AvaloniaResource Include="Assets\Jarvis.png" />
+    <AvaloniaResource Include="Assets\Icons\icons.json" />
     <Content Include="Assets\Fonts\**\OFL.txt" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
     <PackageReference Include="Markdig" Version="0.41.3" />
     <PackageReference Include="Avalonia.Controls.ColorPicker" Version="11.3.22" />

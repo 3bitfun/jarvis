@@ -1,6 +1,6 @@
 # Windows installer
 
-Run `dist\installer\JARVIS-Setup-1.1.0-win-x64.exe` to install for the current Windows account. Setup includes the .NET runtime and does not require administrator access. Default destination: `%LOCALAPPDATA%\Programs\JARVIS`.
+Run `dist\installer\JARVIS-Setup-1.1.1-win-x64.exe` to install for the current Windows account. Setup includes the .NET runtime and does not require administrator access. Default destination: `%LOCALAPPDATA%\Programs\JARVIS`.
 
 Setup offers an optional GGUF file picker. Leave it empty for cloud-only use, or select a complete downloaded GGUF to copy into the installed `models` folder. The GGUF header is checked before installation. Setup preserves a model if its destination filename already exists. Additional models can be imported later from Settings → Engine. No model is downloaded automatically.
 

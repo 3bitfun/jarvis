@@ -25,7 +25,7 @@ public partial class HomeView : UserControl
         RecentChats.Children.Clear();
         foreach (var chat in chats.Where(c => c.Title != "New chat").Take(5))
         {
-            var row = new Button { Content = chat.Title + "   ↗", HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Left };
+            var row = new Button { Content = AppIcon.Label("chat", chat.Title), HorizontalAlignment = HorizontalAlignment.Stretch, HorizontalContentAlignment = HorizontalAlignment.Left };
             row.Click += (_, _) => OpenChat?.Invoke(chat.Id);
             RecentChats.Children.Add(row);
         }

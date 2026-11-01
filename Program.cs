@@ -9,6 +9,7 @@ internal static class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        if (args.Length == 2 && args[0] == "--export-icons") { BuildAvaloniaApp().SetupWithoutStarting(); IconExport.Export(args[1]); return; }
         if (args.Length > 0 && args[0].StartsWith("--check-"))
             Environment.SetEnvironmentVariable("JARVIS_DATA_DIR", Path.Combine(Path.GetTempPath(), "JARVIS-check-run-" + Guid.NewGuid().ToString("N")));
         if (args.Length == 1 && args[0] == "--check-readiness") { ReadinessChecks.RunAsync().GetAwaiter().GetResult(); return; }

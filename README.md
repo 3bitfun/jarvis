@@ -4,6 +4,8 @@ A C# / .NET 8 Avalonia desktop assistant with local GGUF and cloud providers, a 
 
 Version 1.1.0 adds tray access, single-instance launch handling, first-run setup, encrypted drafts, recovery backups, richer Markdown, and dedicated image-service settings. See [release notes and checks](RELEASE.md) and [the changelog](CHANGELOG.md).
 
+Version 1.1.1 adds an original vector icon system, matching SVG/PNG exports, and a new app mark. Browse [the icon library](Assets/Icons/README.md), or run `scripts/Export-Icons.ps1` to regenerate the assets and a ZIP under `dist/design`.
+
 ## Develop
 
 Install the .NET 8 SDK or a compatible later SDK, then run:

@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 1.1.1 — 2026-11-01
+
+- Added an original set of 46 icons with SVG sources and 276 transparent PNG exports for light/dark backgrounds.
+- Added a custom J app mark in nine PNG sizes, editable SVG, and seven-resolution Windows ICO.
+- Replaced text-symbol icons across navigation, settings, chat actions, home shortcuts, and the pet pill with native theme-aware vectors.
+- Added accessible names to icon buttons, an icon contact sheet, and a repeatable asset export script.
+
 ## 1.1.0 — 2026-11-01
 
 - Added system tray controls and single-instance activation; repeat launches bring the existing deck forward.

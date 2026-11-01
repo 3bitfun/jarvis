@@ -12,6 +12,7 @@ public sealed record LauncherResult(LaunchableApp App, int Number)
     public string Shortcut => HasShortcut ? "Alt " + Number : "";
     public bool IsFavorite { get; set; }
     public string FavoriteGlyph => IsFavorite ? "★" : "☆";
+    public string FavoriteIcon => IsFavorite ? "star-filled" : "star";
 }
 public partial class MiniLauncherWindow : Window
 {
