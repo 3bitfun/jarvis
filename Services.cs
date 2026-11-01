@@ -38,6 +38,13 @@ public sealed class AppConfig
     public int ResponseTokens { get; set; } = 1024;
     public bool GlassEnabled { get; set; } = true;
     public bool SetupCompleted { get; set; }
+    public bool SetupDismissed { get; set; }
+    public bool VerityMode { get; set; }
+    public List<string> DashboardWidgets { get; set; } = new() { "Core", "System", "Storage", "Network", "Clock", "Suggestions" };
+    public Dictionary<string, bool> WideWidgets { get; set; } = new();
+    public bool WeatherEnabled { get; set; }
+    public bool NewsEnabled { get; set; }
+    public string WeatherCity { get; set; } = "Sydney";
     public string DisplayName { get; set; } = "";
     public string QuickShortcut { get; set; } = "Alt+Space";
     public string DeckShortcut { get; set; } = "Alt+J";
@@ -79,6 +86,7 @@ public sealed class AppConfig
         }
         if (ActiveProvider != "Local" && !defaults.Providers.ContainsKey(ActiveProvider ?? "")) ActiveProvider = "Local";
         ChatModes ??= new();
+        DashboardWidgets ??= new() { "Core", "System", "Storage", "Network", "Clock", "Suggestions" }; WideWidgets ??= new();
         try { GlobalHotkey.Parse(QuickShortcut); GlobalHotkey.Parse(DeckShortcut); } catch { QuickShortcut = "Alt+Space"; DeckShortcut = "Alt+J"; }
         DisabledSkills ??= new(); Drafts ??= new(); McpServers ??= new();
         ImageProvider ??= new(); ImageProvider.BaseUrl ??= ""; ImageProvider.ApiKey ??= ""; ImageProvider.Model ??= "";

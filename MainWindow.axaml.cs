@@ -917,6 +917,7 @@ public partial class MainWindow : Window
     private void Home_Click(object? sender, RoutedEventArgs e) => NavigateHome();
     private void NavigateHome()
     {
+        if (_welcomeHost is not null) _welcomeHost.IsVisible = false;
         HomePage.IsVisible = true; ChatArea.IsVisible = false;
         ActivePinButton.IsVisible = ExportChatButton.IsVisible = false;
         ChatTitle.IsVisible = false; HomeTitle.IsVisible = true; Breadcrumb.Text = "Workspace / Home";
@@ -925,6 +926,7 @@ public partial class MainWindow : Window
     }
     private void NavigateConversation()
     {
+        if (_welcomeHost is not null) _welcomeHost.IsVisible = false;
         HomePage.IsVisible = false; ChatArea.IsVisible = true;
         ActivePinButton.IsVisible = ExportChatButton.IsVisible = true;
         ChatTitle.IsVisible = true; HomeTitle.IsVisible = false; Breadcrumb.Text = "Workspace / Conversation";

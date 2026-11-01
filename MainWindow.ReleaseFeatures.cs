@@ -12,6 +12,8 @@ public partial class MainWindow
     private ComboBox? _responseChoice;
     private void InitializeReleaseFeatures(bool interactive)
     {
+        HomePage.ConfigureDashboard(_config, SavePreferences, ShowWelcome);
+        Application.Current!.Resources["VerityMode"] = _config.VerityMode;
         PromptBox.AddHandler(KeyDownEvent, PromptBox_KeyDown, RoutingStrategies.Tunnel);
         var style = (StackPanel)((ScrollViewer)((TabItem)SettingsControls.Items[5]!).Content!).Content!;
         var glass = new CheckBox { Content = "Desktop glass / blur", IsChecked = _config.GlassEnabled };
@@ -55,7 +57,7 @@ public partial class MainWindow
         ApplyAppearance();
         if (interactive) Opened += async (_, _) =>
         {
-            if (!_config.SetupCompleted) { OpenFullDeck(); ShowWelcome(); }
+            if (!_config.SetupCompleted && !_config.SetupDismissed) { OpenFullDeck(); ShowWelcome(); }
             try
             {
                 _availableUpdate = await _updater.CheckAsync(typeof(App).Assembly.GetName().Version!);
@@ -72,6 +74,7 @@ public partial class MainWindow
 
     private void ApplyAppearance()
     {
+        if (_config.VerityMode) ThemeManager.Apply("Custom", "#FFD447", "#201C10");
         var solid = !_config.GlassEnabled || _config.Theme is "Minimalist" or "Terminal" or "GitHub Style" or "ChatGPT Style";
         var tint = (Color)Application.Current!.Resources["GlassTintColor"]!;
         var surface = new SolidColorBrush(tint);
@@ -83,7 +86,7 @@ public partial class MainWindow
             r["GlassMaterial"] = new ExperimentalAcrylicMaterial { TintColor = tint, TintOpacity = 1, MaterialOpacity = 1, FallbackColor = tint };
             r["GlassBrush"] = surface;
         }
-        else ThemeManager.Apply(_config.Theme, _config.Accent, _config.Tint);
+        else ThemeManager.Apply(_config.VerityMode ? "Custom" : _config.Theme, _config.VerityMode ? "#FFD447" : _config.Accent, _config.VerityMode ? "#201C10" : _config.Tint);
         var terminal = _config.Theme == "Terminal";
         DeckLayout.ColumnDefinitions[0].Width = new GridLength(_config.Theme switch { "Minimalist" => 190, "Terminal" => 180, "ChatGPT Style" => 250, "GitHub Style" => 260, _ => 240 });
         ChatLog.MaxWidth = _config.Theme switch { "ChatGPT Style" => 740, "Terminal" => 1100, "Minimalist" => 760, _ => 900 };
@@ -94,32 +97,4 @@ public partial class MainWindow
         if (solid) r["PanelBrush"] = new SolidColorBrush(Color.FromArgb(70, 0, 0, 0));
     }
 
-    private void ShowWelcome()
-    {
-        var body = new StackPanel { Spacing = 14, Margin = new Thickness(24) };
-        var window = new Window { Title = "Welcome to J.A.R.V.I.S.", Width = 560, Height = 620, Content = new ScrollViewer { Content = body }, WindowStartupLocation = WindowStartupLocation.CenterOwner };
-        body.Children.Add(new TextBlock { Text = "Welcome to J.A.R.V.I.S.", FontSize = 26, FontWeight = FontWeight.SemiBold });
-        var name = new TextBox { Watermark = "What should I call you? (optional)", Text = _config.DisplayName };
-        body.Children.Add(name);
-        window.Closing += (_, _) => { _config.DisplayName = name.Text?.Trim() ?? ""; SavePreferences(); };
-        var greeting = new TextBlock { Text = "A little help, always nearby. You can skip setup and return from About.", TextWrapping = TextWrapping.Wrap };
-        name.TextChanged += (_, _) => greeting.Text = "Welcome" + (string.IsNullOrWhiteSpace(name.Text) ? "!" : ", " + name.Text!.Trim() + "!");
-        body.Children.Add(greeting);
-        body.Children.Add(new TextBlock { Text = $"{_engine.LocalModels.Count} local models found. Local CPU inference needs RAM for model weights plus context; a 1-1.5B Q4 model is a useful starting point on an 8 GB machine. Larger models need more memory. Cloud requests send selected context to your provider.", TextWrapping = TextWrapping.Wrap });
-        void Action(string text, Action action) { var button = new Button { Content = text, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch }; button.Click += (_, _) => { action(); }; body.Children.Add(button); }
-        var modelChoice = new ComboBox { ItemsSource = ModelDownloadService.Curated, SelectedIndex = 0 };
-        body.Children.Add(modelChoice);
-        Action("Download selected GGUF", () => { CuratedModelChoice.SelectedItem = modelChoice.SelectedItem; window.Close(); OpenSettingsTab(0); DownloadGguf_Click(this, new RoutedEventArgs()); });
-        Action("Download or import a GGUF / configure cloud", () => { window.Close(); OpenSettingsTab(0); });
-        body.Children.Add(new TextBlock { Text = "Try J.A.R.V.I.S.", FontSize = 18 });
-        Action("Launch an app", () => { window.Close(); ToggleQuickBar(); });
-        Action("Start a focus timer", () => { window.Close(); _ = StartWorkRoutineAsync(); });
-        Action("Draft a desktop note", () => { window.Close(); NewChat_Click(this, new RoutedEventArgs()); PromptBox.Text = "Help me draft a short note. Ask what it should say and where I want to save it before making a file."; PromptBox.Focus(); });
-        Action("Customize shortcuts and appearance", () => { window.Close(); OpenSettingsTab(5); });
-        var memory = new CheckBox { Content = "Save conversation memory", IsChecked = _config.MemoryEnabled }; body.Children.Add(memory);
-        void Finish() { _config.DisplayName = name.Text?.Trim() ?? ""; _config.MemoryEnabled = memory.IsChecked == true; MemoryCheck.IsChecked = _config.MemoryEnabled; _config.SetupCompleted = true; SavePreferences(); window.Close(); }
-        Action("Ready - save setup", Finish);
-        Action("Skip setup", () => { _config.SetupCompleted = true; SavePreferences(); window.Close(); });
-        window.Show(this);
-    }
 }

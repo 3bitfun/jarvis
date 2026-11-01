@@ -1,5 +1,9 @@
 # J.A.R.V.I.S.
 
+Version 1.3.0 adds an embedded welcome guide and a customizable Home dashboard. Open **Customize dashboard** to show/hide widgets; drag widget headings or use arrows to reorder, and use Resize for standard/wide cards. Changes are saved locally. Weather sends the city you enter to Open-Meteo only after you enable access and refresh. News similarly fetches BBC World headlines only on request. Local system widgets do not need internet access. GPU utilization is currently unavailable; Windows adapter identification is shown when accessible. Network speed is link speed rather than a bandwidth test. Suggestions are simple setup/starter hints.
+
+Alt+Space opens an original core mark that expands into the quick launcher. The welcome guide stays inside the full deck and can be reopened from About. Skip leaves a Continue setup banner. Hidden `/verity` toggles an original yellow-smiley persona and gold appearance; repeat the command to restore the normal persona. Existing conversations and tool approvals are retained.
+
 A C# / .NET 8 Avalonia desktop assistant with local GGUF and cloud providers, a quick chat/app launcher, a full chat window, memory, skills, and MCP tools.
 
 Version 1.1.0 adds tray access, single-instance launch handling, first-run setup, encrypted drafts, recovery backups, richer Markdown, and dedicated image-service settings. See [release notes and checks](RELEASE.md) and [the changelog](CHANGELOG.md).

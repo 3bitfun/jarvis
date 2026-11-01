@@ -28,6 +28,8 @@ public partial class MiniLauncherWindow : Window
     private readonly DispatcherTimer _statusTimer = new() { Interval = TimeSpan.FromSeconds(2) };
     private bool _busy, _closed, _ready;
     private Task? _indexing;
+    private readonly DispatcherTimer _morph = new() { Interval = TimeSpan.FromMilliseconds(16) };
+    private EventHandler? _morphFrame;
     private LauncherResult[] _visible = Array.Empty<LauncherResult>();
     private MarkdownChat? _markdown;
     public MiniLauncherWindow() : this(_ => Task.FromResult("Open the quick bar from the main application."), () => { }) { }
@@ -45,7 +47,7 @@ public partial class MiniLauncherWindow : Window
             try { _indexing = _launcher.RefreshAsync(); await _indexing; if (!_closed && !_busy) UpdateResults(); }
             catch (Exception) { if (!_closed) Status.Text = "App search could not initialize. You can still ask J.A.R.V.I.S."; }
         };
-        Closed += (_, _) => { _closed = true; _statusTimer.Stop(); _markdown?.Dispose(); _icons.Dispose(); };
+        Closed += (_, _) => { _closed = true; _morph.Stop(); _statusTimer.Stop(); _markdown?.Dispose(); _icons.Dispose(); };
     }
     public void Toggle(Window main)
     {
@@ -59,9 +61,32 @@ public partial class MiniLauncherWindow : Window
         if (screen is not null) { _workArea = screen.WorkingArea; _scale = screen.Scaling; }
         SetPillState(PetPillState.Idle);
         Show(); Activate(); FocusIdle();
+        _morph.Stop();
+        var started = System.Diagnostics.Stopwatch.StartNew();
+        Width = Height = 96;
+        OpeningMark.IsVisible = true; PillShell.Opacity = 0;
+        EventHandler? frame = null;
+        frame = (_, _) =>
+        {
+            if (!IsVisible || _closed) { _morph.Stop(); _morph.Tick -= frame; return; }
+            var t = Math.Clamp((started.Elapsed.TotalMilliseconds - 140) / 420, 0, 1);
+            var eased = 1 - Math.Pow(1 - t, 3);
+            OpeningMark.IsVisible = eased < .35;
+            OpeningMark.Opacity = 1 - eased;
+            PillShell.Opacity = eased;
+            Width = 96 + (Math.Min(560, _workArea.Width / _scale - 24) - 96) * eased;
+            Height = 96 + 204 * eased;
+            Position = new PixelPoint(_workArea.X + (_workArea.Width - (int)(Width * _scale)) / 2, _workArea.Y + (int)(16 * _scale));
+            PillShell.CornerRadius = new CornerRadius(48 - 28 * eased);
+            if (t >= 1) { _morph.Stop(); _morph.Tick -= frame; ExpandInput(); }
+        };
+        _morphFrame = frame; _morph.Tick += frame; _morph.Start();
     }
     private void SetPillState(PetPillState state)
     {
+        _morph.Stop();
+        if (_morphFrame is not null) { _morph.Tick -= _morphFrame; _morphFrame = null; }
+        OpeningMark.IsVisible = false; PillShell.Opacity = 1;
         _state = state;
         var idle = state == PetPillState.Idle;
         var areaWidth = _workArea.Width / _scale;

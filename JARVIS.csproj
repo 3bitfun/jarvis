@@ -3,7 +3,7 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0</TargetFramework>
     <Nullable>enable</Nullable>
-    <Version>1.2.1</Version>
+    <Version>1.3.0</Version>
     <ApplicationIcon>Assets\Jarvis.ico</ApplicationIcon>
     <ImplicitUsings>enable</ImplicitUsings>
     <AvaloniaUseCompiledBindingsByDefault>false</AvaloniaUseCompiledBindingsByDefault>

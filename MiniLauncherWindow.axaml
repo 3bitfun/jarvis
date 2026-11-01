@@ -2,6 +2,7 @@
  Title="J.A.R.V.I.S. Pet Pill" Width="344" Height="72" CanResize="False" ShowInTaskbar="False" Topmost="True"
  Background="Transparent" TransparencyLevelHint="AcrylicBlur,Transparent" SystemDecorations="None" RequestedThemeVariant="Dark" FontFamily="{DynamicResource AppFont}">
  <Grid>
+  <local:AssistantMark x:Name="OpeningMark" Width="80" Height="80" IsVisible="False" HorizontalAlignment="Center" VerticalAlignment="Center"/>
   <TextBox x:Name="IdleInput" Opacity="0" Width="1" Height="1" TextChanged="IdleInput_Changed"/>
   <Border x:Name="PillShell" Margin="8" Background="Transparent" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="28" ClipToBounds="True" BoxShadow="0 4 12 0 #40000000">
    <Border.Transitions><Transitions><CornerRadiusTransition Property="CornerRadius" Duration="0:0:0.16"/></Transitions></Border.Transitions>
@@ -10,7 +11,7 @@
     <Border Background="{DynamicResource GlassHighlightBrush}" CornerRadius="{Binding CornerRadius, ElementName=PillShell}" IsHitTestVisible="False"/>
    <Grid RowDefinitions="54,*">
     <Grid x:Name="PillHeader" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10" Margin="14,0,10,0" PointerPressed="PillHeader_PointerPressed">
-     <Border Width="30" Height="30" CornerRadius="15" Background="{DynamicResource RaisedBrush}" VerticalAlignment="Center"><local:AppIcon Kind="logo" Width="20" Height="20" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center"/></Border>
+     <Border Width="42" Height="42" CornerRadius="21" Background="{DynamicResource RaisedBrush}" VerticalAlignment="Center"><local:AssistantMark Width="40" Height="40" HorizontalAlignment="Center"/></Border>
      <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="7" VerticalAlignment="Center"><Ellipse Width="5" Height="5" Fill="{DynamicResource AccentBrush}"/><TextBlock x:Name="PetStatus" Text="J.A.R.V.I.S. · Ready" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/></StackPanel>
      <Button Grid.Column="2" Classes="quiet" AutomationProperties.Name="Full deck" Click="FullDeck_Click" Padding="7" ToolTip.Tip="Full deck · Alt+J"><local:AppIcon Kind="arrow-up-right"/></Button>
      <Button Grid.Column="3" Classes="quiet" AutomationProperties.Name="Close" Click="CloseBar_Click" Padding="7" ToolTip.Tip="Hide pet"><local:AppIcon Kind="close"/></Button>

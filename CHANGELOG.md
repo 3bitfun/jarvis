@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 1.3.0 — 2026-11-01
+
+- Replaced the separate welcome window with an embedded five-step guide, Back/Next/Skip/Finish, GGUF downloads and a Home continuation banner.
+- Added dashboard widgets for core status, CPU/RAM, GPU identification, storage, network link status, time/uptime and starter suggestions.
+- Added saved widget visibility, order, drag-and-drop and two width choices.
+- Added optional, manually refreshed Open-Meteo weather and BBC World headlines. Web widgets are off by default.
+- Added an original animated core mark and logo-to-search-pill opening animation.
+- Added hidden `/verity` mode with an original yellow smiley mark, gold appearance and playful persona; use the command again to restore J.A.R.V.I.S.
+
+
 ## 1.2.1 — 2026-11-01
 
 - Added first-run welcome, optional name, model download, starter actions, privacy choice, skip, and replay from About.

@@ -14,6 +14,12 @@ public partial class HomeView : UserControl
     public Action<string>? OpenChat { get; set; }
     public Action<string>? StartPrompt { get; set; }
     public HomeView() => InitializeComponent();
+    public void ConfigureDashboard(AppConfig config, Action save, Action welcome)
+    {
+        var body = (StackPanel)((ScrollViewer)Content!).Content!;
+        var dashboard = new DashboardView(); dashboard.Configure(config, save, welcome);
+        body.Children.Insert(1, dashboard);
+    }
     public void Refresh(IReadOnlyList<ChatInfo> chats, string engine, bool ready, int documentCount)
     {
         Greeting.Text = DateTime.Now.Hour switch { < 12 => "Good morning.", < 18 => "Good afternoon.", _ => "Good evening." };

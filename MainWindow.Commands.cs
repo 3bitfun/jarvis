@@ -127,6 +127,12 @@ public partial class MainWindow
             case "/mcp": OpenSettingsTab(3); return true;
             case "/skills": OpenSettingsTab(4); return true;
             case "/image": GenerateImage_Click(this, new RoutedEventArgs()); return true;
+            case "/verity":
+                _config.VerityMode = !_config.VerityMode;
+                Avalonia.Application.Current!.Resources["VerityMode"] = _config.VerityMode;
+                ThemeManager.Apply(_config.Theme, _config.Accent, _config.Tint); ApplyAppearance(); SavePreferences();
+                reply = _config.VerityMode ? "Verity mode enabled. Use /verity again to return to J.A.R.V.I.S." : "J.A.R.V.I.S. restored.";
+                break;
             case "/help": reply = string.Join("\n", SlashCommands) + "\n\n/reasonnig is also accepted as an alias for /reasoning."; break;
             default: ShowNotice("Unknown command. Type /help for available commands."); return true;
         }
