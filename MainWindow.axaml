@@ -15,7 +15,7 @@
    <Grid>
     <ExperimentalAcrylicBorder CornerRadius="24" Material="{DynamicResource GlassMaterial}" IsHitTestVisible="False"/>
     <Border Background="{DynamicResource GlassHighlightBrush}" CornerRadius="24" IsHitTestVisible="False"/>
-   <Grid RowDefinitions="*,30" ColumnDefinitions="240,*">
+   <Grid x:Name="DeckLayout" RowDefinitions="*,30" ColumnDefinitions="240,*">
     <Border Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,1,0">
      <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Margin="16,24,16,14" RowSpacing="18">
       <StackPanel Orientation="Horizontal" Spacing="12" Margin="8,0,0,4"><Border Background="{DynamicResource RaisedBrush}" CornerRadius="12" Width="42" Height="42"><local:AppIcon Kind="logo" Width="28" Height="28" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center"/></Border><StackPanel VerticalAlignment="Center" Spacing="3"><TextBlock Text="Jarvis" FontSize="19" FontWeight="SemiBold"/><TextBlock Text="A little help, always nearby" Classes="muted" FontSize="11"/></StackPanel></StackPanel>

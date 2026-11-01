@@ -85,6 +85,9 @@ public partial class MainWindow
         }
         else ThemeManager.Apply(_config.Theme, _config.Accent, _config.Tint);
         var terminal = _config.Theme == "Terminal";
+        DeckLayout.ColumnDefinitions[0].Width = new GridLength(_config.Theme switch { "Minimalist" => 190, "Terminal" => 180, "ChatGPT Style" => 250, "GitHub Style" => 260, _ => 240 });
+        ChatLog.MaxWidth = _config.Theme switch { "ChatGPT Style" => 740, "Terminal" => 1100, "Minimalist" => 760, _ => 900 };
+        ChatLog.Spacing = terminal ? 12 : _config.Theme == "ChatGPT Style" ? 32 : 22;
         r["RadiusMd"] = new CornerRadius(terminal || _config.Theme == "GitHub Style" ? 5 : _config.Theme == "Minimalist" ? 8 : 18);
         r["ButtonPadding"] = new Thickness(terminal ? 9 : 14, terminal ? 6 : 10);
         ThemeManager.ApplyFont(terminal ? "Cascadia Mono,Consolas" : _config.FontFamily);

@@ -533,6 +533,7 @@ public partial class MainWindow : Window
     {
         if (!_ready) return;
         _config.DeliberateMode = DeliberateCheck.IsChecked == true;
+        if (_responseChoice is not null) _responseChoice.SelectedItem = _config.DeliberateMode ? "Think more" : "Quick";
         SavePreferences();
         StatusText.Text = _config.DeliberateMode ? "Deliberate mode enabled • next reply" : "Deliberate mode disabled";
     }
