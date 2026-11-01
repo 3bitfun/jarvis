@@ -25,9 +25,9 @@ public static class ProviderModels
                 if (gemini) request.Headers.Add("x-goog-api-key", key);
                 else request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", key);
             }
-            using var response = await Client.SendAsync(request, token);
+            using var response = await Client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
             if (!response.IsSuccessStatusCode) throw new InvalidOperationException($"Model list returned HTTP {(int)response.StatusCode}. Check the API key and base URL, or choose Custom model ID.");
-            using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(token));
+            using var document = JsonDocument.Parse(await HttpPayload.ReadTextAsync(response, 4_000_000, token));
             if (!document.RootElement.TryGetProperty(gemini ? "models" : "data", out var items) || items.ValueKind != JsonValueKind.Array)
                 throw new InvalidDataException("This endpoint did not return a model list. You can still enter a custom model ID.");
             foreach (var item in items.EnumerateArray())

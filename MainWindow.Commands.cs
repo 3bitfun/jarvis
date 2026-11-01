@@ -9,6 +9,7 @@ public partial class MainWindow
 {
     private const string CustomModelOption = "Custom model ID…";
     private bool _loadingModelChoice;
+    private IReadOnlyList<string> _availableModels = Array.Empty<string>();
     private static readonly string[] SlashCommands =
     {
         "/model — choose a model, or /model slug",
@@ -24,6 +25,7 @@ public partial class MainWindow
     private void ResetProviderModelChoice()
     {
         _loadingModelChoice = true;
+        _availableModels = Array.Empty<string>(); CloudModelFilter.Text = "";
         var model = CloudModelBox.Text ?? "";
         CloudModelChoice.ItemsSource = string.IsNullOrWhiteSpace(model) ? new[] { CustomModelOption } : new[] { model, CustomModelOption };
         CloudModelChoice.SelectedItem = CustomModelOption;
@@ -38,6 +40,17 @@ public partial class MainWindow
         if (id != CustomModelOption) CloudModelBox.Text = id;
     }
     private async void FetchProviderModels_Click(object? sender, RoutedEventArgs e) => await FetchProviderModelsAsync();
+    private void CloudModelFilter_Changed(object? sender, TextChangedEventArgs e)
+    {
+        if (_loadingModelChoice || _availableModels.Count == 0) return;
+        var query = CloudModelFilter.Text?.Trim() ?? "";
+        var choices = _availableModels.Where(id => id.Contains(query, StringComparison.OrdinalIgnoreCase)).ToArray();
+        _loadingModelChoice = true;
+        CloudModelChoice.ItemsSource = choices.Concat(new[] { CustomModelOption }).ToArray();
+        CloudModelChoice.SelectedItem = choices.Contains(CloudModelBox.Text ?? "") ? CloudModelBox.Text : CustomModelOption;
+        CloudModelBox.IsVisible = Equals(CloudModelChoice.SelectedItem, CustomModelOption);
+        _loadingModelChoice = false;
+    }
     private async Task FetchProviderModelsAsync()
     {
         var provider = _config.ActiveProvider;
@@ -47,9 +60,10 @@ public partial class MainWindow
         try
         {
             var models = await ProviderModels.FetchAsync(provider, endpoint, key);
-            if (provider != _config.ActiveProvider || endpoint != EndpointBox.Text) return;
+            if (provider != _config.ActiveProvider || endpoint != EndpointBox.Text || key != ApiKeyBox.Text) return;
             var selected = CloudModelBox.Text;
             _loadingModelChoice = true;
+            _availableModels = models; CloudModelFilter.Text = "";
             CloudModelChoice.ItemsSource = models.Concat(new[] { CustomModelOption }).ToArray();
             CloudModelChoice.SelectedItem = selected is not null && models.Contains(selected) ? selected : CustomModelOption;
             CloudModelBox.IsVisible = Equals(CloudModelChoice.SelectedItem, CustomModelOption);

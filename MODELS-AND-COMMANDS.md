@@ -22,3 +22,7 @@ Type `/` in the composer for a clickable command menu:
 Commands are handled by the app before any model inference or web search. A custom cloud slug is saved immediately by `/model slug`; selecting a model in settings applies when **Save engine settings** is pressed.
 
 Provider references: [Gemini model listing](https://ai.google.dev/api/models), [Groq API reference](https://console.groq.com/docs/api-reference), [NVIDIA API reference](https://docs.api.nvidia.com/nim/reference/llm-apis).
+
+The fetched model list can be filtered by typing part of a model name. Engine settings also offer local temperature and maximum reply tokens. Under **Image generation**, configure an independent OpenAI-compatible image endpoint, key, and image model; this lets a local chat model use a cloud image service. Leaving these blank uses the active cloud chat service, which must support an image API/model to succeed.
+
+Keyboard shortcuts: Ctrl+N new chat, Ctrl+K search chats, Ctrl+L focus the composer, Ctrl+, settings, Ctrl+Shift+E export, Tab complete a slash command, Escape close settings/command menu or cancel the active request. The system tray provides access when the deck is hidden. Clicking **Edit last message** copies it into the composer as a new draft; **Delete conversation** asks before deleting and updates recovery backups too.

@@ -32,9 +32,13 @@ public sealed class AppConfig
     public int VisualStyleVersion { get; set; }
     public string Accent { get; set; } = "#D5E9A4";
     public string Tint { get; set; } = "#17191B";
-    public string Workspace { get; set; } = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "JARVIS", "workspace");
+    public string Workspace { get; set; } = Path.Combine(AppPaths.DataDirectory, "workspace");
     public bool FileTools { get; set; }
     public bool DeliberateMode { get; set; } = true;
+    public int ResponseTokens { get; set; } = 768;
+    public double Temperature { get; set; } = 0.6;
+    public ProviderProfile ImageProvider { get; set; } = new();
+    public Dictionary<string, string> Drafts { get; set; } = new();
     public string FontFamily { get; set; } = FontCatalog.Inter;
     public int FontPickerVersion { get; set; }
     public bool KnowledgeEnabled { get; set; } = true;
@@ -57,26 +61,58 @@ public sealed class AppConfig
         ["Google Gemini"] = new() { BaseUrl = "https://generativelanguage.googleapis.com/v1beta", Model = "" },
         ["Custom OpenAI"] = new() { BaseUrl = "http://localhost:1234/v1", Model = "" }
     };
+    public void Normalize()
+    {
+        var defaults = new AppConfig();
+        Providers ??= new();
+        foreach (var (name, profile) in defaults.Providers)
+        {
+            if (!Providers.TryGetValue(name, out var stored) || stored is null) Providers[name] = profile;
+            else { stored.BaseUrl ??= profile.BaseUrl; stored.ApiKey ??= ""; stored.Model ??= ""; }
+        }
+        if (ActiveProvider != "Local" && !defaults.Providers.ContainsKey(ActiveProvider ?? "")) ActiveProvider = "Local";
+        DisabledSkills ??= new(); Drafts ??= new(); McpServers ??= new();
+        ImageProvider ??= new(); ImageProvider.BaseUrl ??= ""; ImageProvider.ApiKey ??= ""; ImageProvider.Model ??= "";
+        FavoriteAppPaths ??= new(); RecentAppPaths ??= new(); ShortcutAppPaths ??= new(); WorkRoutineAppPaths ??= new();
+        UserProfile ??= ""; PreferredLocalModel ??= "";
+        if (string.IsNullOrWhiteSpace(FontFamily)) FontFamily = FontCatalog.Inter;
+        McpServers = McpServers.Where(server => server is not null).ToList();
+        ResponseTokens = Math.Clamp(ResponseTokens, 128, 4096);
+        Temperature = double.IsFinite(Temperature) ? Math.Clamp(Temperature, 0, 1.5) : .6;
+        WorkFocusMinutes = Math.Clamp(WorkFocusMinutes, 1, 240);
+        if (string.IsNullOrWhiteSpace(Workspace)) Workspace = defaults.Workspace;
+        if (!Avalonia.Media.Color.TryParse(Accent, out _)) Accent = defaults.Accent;
+        if (!Avalonia.Media.Color.TryParse(Tint, out _)) Tint = defaults.Tint;
+    }
 }
 public sealed class SecureConfigStore
 {
+    public string? RecoveryNotice { get; private set; }
     private readonly string _directory;
-    public SecureConfigStore(string? directory = null) => _directory = directory ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "JARVIS");
+    public SecureConfigStore(string? directory = null) => _directory = directory ?? AppPaths.DataDirectory;
     public AppConfig Load()
     {
         var path = Path.Combine(_directory, "config.encrypted.json");
-        if (!File.Exists(path)) return new();
-        var envelope = JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(path))!;
-        var bytes = Convert.FromBase64String(envelope["payload"]);
+        var result = AtomicStorage.Read(path, Decode, () => new AppConfig(), out var recovery);
+        result.Normalize();
+        RecoveryNotice = recovery;
+        return result;
+    }
+    private AppConfig Decode(string text)
+    {
+        var envelope = JsonSerializer.Deserialize<Dictionary<string, string>>(text) ?? throw new InvalidDataException("Empty settings.");
+        if (!envelope.TryGetValue("payload", out var payload) || string.IsNullOrWhiteSpace(payload)) throw new InvalidDataException("Settings payload is missing.");
+        var bytes = Convert.FromBase64String(payload);
         byte[] plain;
         if (OperatingSystem.IsWindows()) plain = ProtectedData.Unprotect(bytes, null, DataProtectionScope.CurrentUser);
         else
         {
+            if (bytes.Length < 28) throw new InvalidDataException("Settings payload is incomplete.");
             plain = new byte[bytes.Length - 28];
             using var aes = new AesGcm(Key(), 16);
             aes.Decrypt(bytes.AsSpan(0, 12), bytes.AsSpan(28), bytes.AsSpan(12, 16), plain);
         }
-        return JsonSerializer.Deserialize<AppConfig>(plain) ?? new();
+        return JsonSerializer.Deserialize<AppConfig>(plain) ?? throw new InvalidDataException("Settings content is empty.");
     }
     private byte[] Key()
     {
@@ -89,6 +125,11 @@ public sealed class SecureConfigStore
             file.Write(RandomNumberGenerator.GetBytes(32));
         }
         return File.ReadAllBytes(path);
+    }
+    public void ForgetPreviousVersion()
+    {
+        var path = Path.Combine(_directory, "config.encrypted.json");
+        AtomicStorage.PurgeHistory(path);
     }
     public void Save(AppConfig config)
     {
@@ -104,8 +145,7 @@ public sealed class SecureConfigStore
             aes.Encrypt(encrypted.AsSpan(0, 12), plain, encrypted.AsSpan(28), encrypted.AsSpan(12, 16));
         }
         var path = Path.Combine(_directory, "config.encrypted.json");
-        File.WriteAllText(path + ".tmp", JsonSerializer.Serialize(new { payload = Convert.ToBase64String(encrypted) }));
-        File.Move(path + ".tmp", path, true);
+        AtomicStorage.Write(path, JsonSerializer.Serialize(new { payload = Convert.ToBase64String(encrypted) }));
     }
 }
 public interface ICloudAdapter
@@ -123,9 +163,9 @@ public class OpenAiAdapter : ICloudAdapter
         using var request = new HttpRequestMessage(HttpMethod.Post, url);
         if (!string.IsNullOrWhiteSpace(profile.ApiKey)) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", profile.ApiKey);
         request.Content = JsonContent.Create(new { model = profile.Model, messages = new[] { new { role = "system", content = system }, new { role = "user", content = prompt } }, max_tokens = maxTokens, stream = false });
-        using var response = await Client.SendAsync(request, token);
+        using var response = await Client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
         if (!response.IsSuccessStatusCode) throw new InvalidOperationException($"Provider returned HTTP {(int)response.StatusCode}. Check the endpoint, key, and model.");
-        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(token));
+        using var document = JsonDocument.Parse(await HttpPayload.ReadTextAsync(response, 4_000_000, token));
         return document.RootElement.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString() ?? "";
     }
     protected static void Validate(string url)
@@ -147,9 +187,9 @@ public sealed class GeminiAdapter : OpenAiAdapter
         using var request = new HttpRequestMessage(HttpMethod.Post, url);
         request.Headers.Add("x-goog-api-key", profile.ApiKey);
         request.Content = JsonContent.Create(new { systemInstruction = new { parts = new[] { new { text = system } } }, contents = new[] { new { role = "user", parts = new[] { new { text = prompt } } } }, generationConfig = new { maxOutputTokens = maxTokens } });
-        using var response = await Client.SendAsync(request, token);
+        using var response = await Client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
         if (!response.IsSuccessStatusCode) throw new InvalidOperationException($"Gemini returned HTTP {(int)response.StatusCode}. Check credentials and model.");
-        using var doc = JsonDocument.Parse(await response.Content.ReadAsStringAsync(token));
+        using var doc = JsonDocument.Parse(await HttpPayload.ReadTextAsync(response, 4_000_000, token));
         return string.Concat(doc.RootElement.GetProperty("candidates")[0].GetProperty("content").GetProperty("parts").EnumerateArray().Where(p => p.TryGetProperty("text", out _)).Select(p => p.GetProperty("text").GetString()));
     }
 }

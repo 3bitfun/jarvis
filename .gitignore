@@ -20,8 +20,12 @@ models/*
 .env.*
 !.env.example
 config.encrypted.json
+config.encrypted.json.*
 config.key
 memory.json
+memory.json.*
+*.bak
+*.corrupt-*
 workspace/
 knowledge/
 *.pfx

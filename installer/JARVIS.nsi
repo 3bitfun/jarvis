@@ -5,6 +5,8 @@ Unicode true
 !include "FileFunc.nsh"
 !include "x64.nsh"
 !include "WinVer.nsh"
+!define MUI_ICON "${APP_ICON}"
+!define MUI_UNICON "${APP_ICON}"
 
 Name "J.A.R.V.I.S."
 OutFile "${OUTPUT_FILE}"
@@ -12,10 +14,10 @@ InstallDir "$LOCALAPPDATA\Programs\JARVIS"
 InstallDirRegKey HKCU "Software\JARVIS" "InstallDir"
 RequestExecutionLevel user
 SetCompressor /SOLID lzma
-VIProductVersion "1.0.0.0"
+VIProductVersion "${APP_VERSION}.0"
 VIAddVersionKey "ProductName" "J.A.R.V.I.S."
 VIAddVersionKey "FileDescription" "J.A.R.V.I.S. desktop assistant setup"
-VIAddVersionKey "FileVersion" "1.0.0"
+VIAddVersionKey "FileVersion" "${APP_VERSION}"
 VIAddVersionKey "LegalCopyright" "J.A.R.V.I.S. contributors"
 
 Var GgufPath
@@ -106,7 +108,7 @@ Section "J.A.R.V.I.S. application (required)" SEC_APP
   CreateShortcut "$SMPROGRAMS\J.A.R.V.I.S.\Uninstall.lnk" "$INSTDIR\Uninstall.exe"
   WriteRegStr HKCU "Software\JARVIS" "InstallDir" "$INSTDIR"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\JARVIS" "DisplayName" "J.A.R.V.I.S."
-  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\JARVIS" "DisplayVersion" "1.0.0"
+  WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\JARVIS" "DisplayVersion" "${APP_VERSION}"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\JARVIS" "InstallLocation" "$INSTDIR"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\JARVIS" "DisplayIcon" "$INSTDIR\JARVIS.exe"
   WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Uninstall\JARVIS" "UninstallString" '$\"$INSTDIR\Uninstall.exe$\"'

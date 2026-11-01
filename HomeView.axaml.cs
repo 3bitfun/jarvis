@@ -12,12 +12,15 @@ public partial class HomeView : UserControl
     public event EventHandler<RoutedEventArgs>? KnowledgeRequested;
     public event EventHandler<RoutedEventArgs>? StyleRequested;
     public Action<string>? OpenChat { get; set; }
+    public Action<string>? StartPrompt { get; set; }
     public HomeView() => InitializeComponent();
     public void Refresh(IReadOnlyList<ChatInfo> chats, string engine, bool ready, int documentCount)
     {
         Greeting.Text = DateTime.Now.Hour switch { < 12 => "Good morning.", < 18 => "Good afternoon.", _ => "Good evening." };
         EngineText.Text = engine;
         EngineStatus.Text = ready ? "Ready for your next idea." : "Configure your engine in Settings to begin.";
+        SetupCard.IsVisible = !ready;
+        LibrarySummary.Text = $"{chats.Count} conversations · {chats.Count(chat => chat.IsPinned)} pinned · {documentCount} reference documents";
         KnowledgeText.Text = $"{documentCount} documents indexed";
         RecentChats.Children.Clear();
         foreach (var chat in chats.Where(c => c.Title != "New chat").Take(5))
@@ -33,6 +36,7 @@ public partial class HomeView : UserControl
         }
     }
     public void SetRoutineStatus(string text) => RoutineStatus.Text = text;
+    private void Starter_Click(object? sender, RoutedEventArgs e) { if (sender is Button { Tag: string prompt }) StartPrompt?.Invoke(prompt); }
     private void NewChat_Click(object? sender, RoutedEventArgs e) => NewChatRequested?.Invoke(this, e);
     private void QuickBar_Click(object? sender, RoutedEventArgs e) => QuickBarRequested?.Invoke(this, e);
     private void Routine_Click(object? sender, RoutedEventArgs e) => RoutineRequested?.Invoke(this, e);

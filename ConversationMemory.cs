@@ -40,22 +40,35 @@ public sealed class ConversationMemory
         .ToArray();
     public string ActiveId => _state.Id;
     public string FilePath { get; }
+    public string? RecoveryNotice { get; }
+    public IReadOnlyList<ChatTurn> SessionTurns => _transientTurns.ToArray();
     public string Summary => _state.Summary;
     public int CompactedCount => _state.CompactedCount;
     public IReadOnlyList<ChatTurn> Turns => _state.Turns.Concat(_transientTurns).ToArray();
 
     public ConversationMemory(string? directory = null)
     {
-        directory ??= Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "JARVIS");
+        directory ??= AppPaths.DataDirectory;
         Directory.CreateDirectory(directory);
         FilePath = Path.Combine(directory, "memory.json");
-        var json = File.Exists(FilePath) ? File.ReadAllText(FilePath) : "{}";
-        _library = JsonSerializer.Deserialize<Library>(json) ?? new Library();
+        _library = AtomicStorage.Read(FilePath, json =>
+        {
+            var library = JsonSerializer.Deserialize<Library>(json) ?? throw new InvalidDataException("Empty chat archive.");
+            library.Chats ??= new();
+            if (library.Chats.Count == 0 && !json.Contains("\"Chats\"")) library.Chats.Add(JsonSerializer.Deserialize<SavedState>(json) ?? new SavedState());
+            return library;
+        }, () => new Library(), out var recovery);
+        RecoveryNotice = recovery;
         if (_library.Chats.Count == 0)
-            _library.Chats.Add(JsonSerializer.Deserialize<SavedState>(json) ?? new SavedState());
+            _library.Chats.Add(new SavedState());
+        _library.Chats = _library.Chats.Where(chat => chat is not null).ToList();
+        if (_library.Chats.Count == 0) _library.Chats.Add(new SavedState());
         foreach (var chat in _library.Chats)
         {
             chat.Title ??= "New chat"; chat.Summary ??= ""; chat.Turns ??= new List<ChatTurn>();
+            chat.Turns = chat.Turns.Where(turn => turn is not null).ToList();
+            chat.CompactedCount = Math.Clamp(chat.CompactedCount, 0, chat.Turns.Count);
+            if (string.IsNullOrWhiteSpace(chat.Id)) chat.Id = Guid.NewGuid().ToString("N");
         }
         _state = _library.Chats.FirstOrDefault(c => c.Id == _library.ActiveId) ?? _library.Chats[0];
     }
@@ -101,6 +114,21 @@ public sealed class ConversationMemory
         return chat.IsPinned;
     }
 
+    public void DeleteChat(string id)
+    {
+        var chat = _library.Chats.First(c => c.Id == id);
+        _library.Chats.Remove(chat);
+        if (_state.Id == id)
+        {
+            _transientTurns.Clear();
+            if (_library.Chats.Count == 0) _library.Chats.Add(new SavedState());
+            _state = _library.Chats[0];
+        }
+        Save();
+        // Replace the rotating backup too, so a deleted chat cannot reappear after recovery.
+        AtomicStorage.PurgeHistory(FilePath);
+    }
+
     public string ExportMarkdown(string id)
     {
         var chat = _library.Chats.First(c => c.Id == id);
@@ -128,6 +156,7 @@ public sealed class ConversationMemory
             chat.UpdatedAt = DateTime.UtcNow;
         }
         Save();
+        AtomicStorage.PurgeHistory(FilePath);
         return count;
     }
 
@@ -144,9 +173,7 @@ public sealed class ConversationMemory
 
     private void Save()
     {
-        var temporary = FilePath + ".tmp";
         _library.ActiveId = _state.Id;
-        File.WriteAllText(temporary, JsonSerializer.Serialize(_library, new JsonSerializerOptions { WriteIndented = true }));
-        File.Move(temporary, FilePath, true);
+        AtomicStorage.Write(FilePath, JsonSerializer.Serialize(_library, new JsonSerializerOptions { WriteIndented = true }));
     }
 }

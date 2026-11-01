@@ -49,16 +49,19 @@ public static class ImageToolParser
     {
         var baseUrl = profile.BaseUrl.TrimEnd('/');
         if (baseUrl.EndsWith("/chat/completions")) baseUrl = baseUrl[..^"/chat/completions".Length];
+        if (baseUrl.EndsWith("/images/generations")) baseUrl = baseUrl[..^"/images/generations".Length];
         var endpoint = baseUrl + "/images/generations";
         var endpointUri = new Uri(endpoint);
         if (endpointUri.Scheme != "https" && !(endpointUri.Scheme == "http" && endpointUri.IsLoopback)) throw new IOException("Image API must use HTTPS (or localhost for development).");
+        if (!string.IsNullOrEmpty(endpointUri.UserInfo)) throw new IOException("Put image credentials in the API key field.");
         using var request = new HttpRequestMessage(HttpMethod.Post, endpoint);
-        request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", profile.ApiKey);
-        request.Content = System.Net.Http.Json.JsonContent.Create(new { model = profile.Model, prompt, n = 1, response_format = "url" });
-        using var client = new HttpClient { Timeout = TimeSpan.FromMinutes(2) };
-        using var response = await client.SendAsync(request, token);
+        if (string.IsNullOrWhiteSpace(profile.Model)) throw new InvalidOperationException("Enter an image model ID in Settings → Engine → Image generation.");
+        if (!string.IsNullOrWhiteSpace(profile.ApiKey)) request.Headers.Authorization = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", profile.ApiKey);
+        request.Content = System.Net.Http.Json.JsonContent.Create(new { model = profile.Model, prompt, n = 1 });
+        using var client = new HttpClient(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = TimeSpan.FromMinutes(2) };
+        using var response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
         if (!response.IsSuccessStatusCode) throw new HttpRequestException($"Image endpoint returned HTTP {(int)response.StatusCode}; this provider/model may not support image generation.");
-        using var document = JsonDocument.Parse(await response.Content.ReadAsStringAsync(token));
+        using var document = JsonDocument.Parse(await HttpPayload.ReadTextAsync(response, 36_000_000, token));
         var data = document.RootElement.GetProperty("data")[0];
         if (data.TryGetProperty("b64_json", out var encoded))
         {

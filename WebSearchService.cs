@@ -20,14 +20,14 @@ public static class WebSearchService
         using var response = await Client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
         response.EnsureSuccessStatusCode();
         if (response.Content.Headers.ContentLength > 2_000_000) throw new InvalidDataException("Search response is unexpectedly large.");
-        var html = await response.Content.ReadAsStringAsync(token);
+        var html = await HttpPayload.ReadTextAsync(response, 2_000_000, token);
         var results = new List<WebSearchResult>();
         foreach (Match match in Result.Matches(html).Take(5))
         {
             var url = WebUtility.HtmlDecode(match.Groups[1].Value);
-            if (url.StartsWith("//duckduckgo.com/l/?", StringComparison.OrdinalIgnoreCase))
+            if (url.StartsWith("//duckduckgo.com/l/?", StringComparison.OrdinalIgnoreCase) || url.StartsWith("https://duckduckgo.com/l/?", StringComparison.OrdinalIgnoreCase))
             {
-                var redirect = new Uri("https:" + url);
+                var redirect = new Uri(url.StartsWith("//") ? "https:" + url : url);
                 var target = System.Web.HttpUtility.ParseQueryString(redirect.Query)["uddg"];
                 if (target is not null) url = target;
             }

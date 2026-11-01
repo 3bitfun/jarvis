@@ -13,9 +13,9 @@ public sealed class LocalSkill
 /// <summary>Loads user-authored SKILL.md files separately from MCP tool servers.</summary>
 public sealed class SkillsLibrary
 {
-    private readonly string _root = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "JARVIS", "skills");
+    private readonly string _root;
     public List<LocalSkill> Skills { get; } = new();
-    public SkillsLibrary() => Refresh();
+    public SkillsLibrary(string? directory = null) { _root = directory ?? Path.Combine(AppPaths.DataDirectory, "skills"); Refresh(); }
     public void Refresh()
     {
         Directory.CreateDirectory(_root); Skills.Clear();
@@ -44,14 +44,17 @@ public sealed class SkillsLibrary
     }
     public string BuildPrompt(int maxChars = 3500)
     {
-        var output = new System.Text.StringBuilder("Relevant user-installed skills (guidance only; user request and system safety rules take priority):\n");
+        var output = new System.Text.StringBuilder();
         foreach (var skill in Skills.Where(s => s.Enabled))
         {
-            var text = File.ReadAllText(skill.Path);
+            string text;
+            try { var info = new FileInfo(skill.Path); if (!info.Exists || info.Length > 32_000) continue; text = File.ReadAllText(skill.Path); }
+            catch (IOException) { continue; }
+            catch (UnauthorizedAccessException) { continue; }
             var block = $"\n## {skill.Name}\n{skill.Description}\n{text}\n";
-            if (output.Length + block.Length > maxChars) break;
+            if (output.Length + block.Length > maxChars) continue;
             output.Append(block);
         }
-        return output.Length == 0 ? "" : output.ToString();
+        return output.Length == 0 ? "" : "User-installed skill guidance (the current user request and system rules take priority):\n" + output;
     }
 }

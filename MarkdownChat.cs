@@ -8,6 +8,8 @@ using Avalonia.Media.Imaging;
 using Markdig;
 using Markdig.Syntax;
 using Markdig.Syntax.Inlines;
+using Markdig.Extensions.Tables;
+using System.Diagnostics;
 namespace JARVIS;
 public sealed class MarkdownChat : IDisposable
 {
@@ -37,7 +39,7 @@ public sealed class MarkdownChat : IDisposable
     public Control Render(string markdown)
     {
         // Standalone image URLs become native image blocks; ordinary prose URLs remain links.
-        markdown = Regex.Replace(markdown, @"(?m)^\s*(https?://[^\s]+)\s*$", "![]($1)");
+        markdown = Regex.Replace(markdown, @"(?im)^\s*(https://[^\s]+\.(?:png|jpg|jpeg|webp)(?:\?[^\s]*)?)\s*$", "![]($1)");
         var panel = new StackPanel { Spacing = 10 };
         Blocks(Markdown.Parse(markdown, Pipeline), panel);
         return panel;
@@ -53,7 +55,46 @@ public sealed class MarkdownChat : IDisposable
         foreach (var block in blocks)
         {
             if (block is FencedCodeBlock code)
-                panel.Children.Add(new Border { Background = Brush.Parse("#60000000"), CornerRadius = new(8), Padding = new(12), Child = new SelectableTextBlock { Text = code.Lines.ToString(), FontFamily = new("Consolas,monospace"), TextWrapping = TextWrapping.Wrap } });
+            {
+                var source = code.Lines.ToString();
+                var copy = new Button { Content = "Copy code", Padding = new(10, 4), FontSize = 11, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right };
+                copy.Click += async (_, _) =>
+                {
+                    try { if (TopLevel.GetTopLevel(copy)?.Clipboard is { } clipboard) { await clipboard.SetTextAsync(source); copy.Content = "Copied"; } }
+                    catch (Exception) { copy.Content = "Copy unavailable"; }
+                };
+                var header = new Grid { ColumnDefinitions = new("*,Auto") };
+                header.Children.Add(new TextBlock { Text = string.IsNullOrEmpty(code.Info) ? "Code" : code.Info, FontSize = 11, Opacity = .7 });
+                Grid.SetColumn(copy, 1); header.Children.Add(copy);
+                panel.Children.Add(new Border { Background = Brush.Parse("#60000000"), CornerRadius = new(12), Padding = new(14), Child = new StackPanel { Spacing = 10, Children =
+                {
+                    header, new ScrollViewer { HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto, VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
+                    Content = new SelectableTextBlock { Text = source, FontFamily = new("Cascadia Mono,Consolas,monospace"), FontSize = 13, TextWrapping = TextWrapping.NoWrap } }
+                } } });
+            }
+            else if (block is Table table)
+            {
+                var columns = Math.Max(1, table.ColumnDefinitions.Count);
+                var grid = new Grid { ColumnDefinitions = new(string.Join(",", Enumerable.Repeat("*", columns))) };
+                var index = 0;
+                foreach (var row in table.OfType<TableRow>())
+                {
+                    grid.RowDefinitions.Add(new RowDefinition(GridLength.Auto));
+                    foreach (var cell in row.OfType<TableCell>())
+                    {
+                        var content = new StackPanel { Spacing = 6 }; Blocks(cell, content);
+                        var border = new Border { Padding = new(10), BorderBrush = Brush.Parse("#40808080"), BorderThickness = new(0, 0, 0, 1), Background = row.IsHeader ? Brush.Parse("#20808080") : Brushes.Transparent, Child = content };
+                        Grid.SetRow(border, index); Grid.SetColumn(border, Math.Clamp(cell.ColumnIndex, 0, columns - 1)); Grid.SetColumnSpan(border, Math.Clamp(cell.ColumnSpan, 1, columns)); grid.Children.Add(border);
+                    }
+                    index++;
+                }
+                panel.Children.Add(grid);
+            }
+            else if (block is QuoteBlock quote)
+            {
+                var inner = new StackPanel { Spacing = 8 }; Blocks(quote, inner);
+                panel.Children.Add(new Border { BorderBrush = Brushes.Gray, BorderThickness = new(3, 0, 0, 0), Padding = new(14, 4), Child = inner });
+            }
             else if (block is LeafBlock leaf)
             {
                 var text = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = block is HeadingBlock heading ? 26 - heading.Level * 2 : 15 };
@@ -66,9 +107,10 @@ public sealed class MarkdownChat : IDisposable
                 var i = 1;
                 foreach (var item in list.OfType<ContainerBlock>())
                 {
-                    var row = new StackPanel { Spacing = 5, Margin = new(12, 0, 0, 0) };
+                    var row = new Grid { ColumnDefinitions = new("28,*"), Margin = new(8, 0, 0, 0) };
                     row.Children.Add(new TextBlock { Text = list.IsOrdered ? $"{i++}." : "•" });
-                    Blocks(item, row); panel.Children.Add(row);
+                    var content = new StackPanel { Spacing = 5 }; Blocks(item, content);
+                    Grid.SetColumn(content, 1); row.Children.Add(content); panel.Children.Add(row);
                 }
             }
             else if (block is ContainerBlock nested) Blocks(nested, panel);
@@ -83,18 +125,19 @@ public sealed class MarkdownChat : IDisposable
                 var host = new ContentControl { Content = new TextBlock { Text = "Loading image…" } };
                 panel.Children.Add(host); _ = LoadImageAsync(link.Url, host);
             }
-            else if (inline is AutolinkInline auto && !auto.IsEmail)
+            else if (inline is LinkInline normalLink && normalLink.Url is not null)
             {
-                var host = new ContentControl(); panel.Children.Add(host); _ = LoadImageAsync(auto.Url, host);
+                var label = string.Concat(normalLink.OfType<LiteralInline>().Select(part => part.Content.ToString()));
+                AddLink(target, normalLink.Url, string.IsNullOrWhiteSpace(label) ? normalLink.Url : label);
             }
+            else if (inline is AutolinkInline auto && !auto.IsEmail) AddLink(target, auto.Url, auto.Url);
             else if (inline is LiteralInline literalUrl && Regex.IsMatch(literalUrl.Content.ToString(), @"https?://"))
             {
                 var value = literalUrl.Content.ToString(); var offset = 0;
                 foreach (Match match in Regex.Matches(value, @"https?://[^\s<>]+"))
                 {
                     target.Add(new Run(value[offset..match.Index]));
-                    var host = new ContentControl { Content = new TextBlock { Text = "Loading image…" } };
-                    panel.Children.Add(host); _ = LoadImageAsync(match.Value.TrimEnd('.', ',', ')'), host);
+                    AddLink(target, match.Value.TrimEnd('.', ',', ')'), match.Value);
                     offset = match.Index + match.Length;
                 }
                 target.Add(new Run(value[offset..]));
@@ -103,6 +146,15 @@ public sealed class MarkdownChat : IDisposable
             else if (inline is ContainerInline nested) Inlines(nested, target, panel, bold, italic);
             else target.Add(new Run(inline switch { LiteralInline literal => literal.Content.ToString(), CodeInline code => code.Content, LineBreakInline => "\n", _ => inline.ToString() ?? "" }) { FontWeight = bold ? FontWeight.Bold : FontWeight.Normal, FontStyle = italic ? FontStyle.Italic : FontStyle.Normal });
         }
+    }
+    private static void AddLink(InlineCollection target, string url, string label)
+    {
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) || uri.Scheme is not ("https" or "http") || !string.IsNullOrEmpty(uri.UserInfo))
+        { target.Add(new Run(label)); return; }
+        var button = new Button { Content = label, Padding = new(0, 1), FontSize = 14, Background = Brushes.Transparent, BorderThickness = new(0) };
+        ToolTip.SetTip(button, uri.Host);
+        button.Click += (_, _) => { try { Process.Start(new ProcessStartInfo(uri.ToString()) { UseShellExecute = true }); } catch (Exception) { ToolTip.SetTip(button, "Could not open your browser"); } };
+        target.Add(new InlineUIContainer(button));
     }
     private async Task LoadImageAsync(string url, ContentControl host)
     {

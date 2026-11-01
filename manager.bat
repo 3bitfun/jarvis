@@ -19,7 +19,8 @@ echo  [1] Build Windows EXE ^(Release publish^)
 echo  [2] Run in Debug mode
 echo  [3] Build Windows installer ^(optional GGUF import during setup^)
 echo  [4] Build installer with a bundled GGUF
-echo  [5] Exit
+echo  [5] Run release checks
+echo  [6] Exit
 echo.
 set "choice="
 set /p "choice=Choose an option: "
@@ -28,7 +29,8 @@ if "%choice%"=="1" goto publish
 if "%choice%"=="2" goto debug
 if "%choice%"=="3" goto installer
 if "%choice%"=="4" goto bundledinstaller
-if "%choice%"=="5" exit /b 0
+if "%choice%"=="5" goto checks
+if "%choice%"=="6" exit /b 0
 echo Invalid choice.
 pause
 goto menu
@@ -65,6 +67,12 @@ goto menu
 echo.
 echo Starting J.A.R.V.I.S. in Debug mode...
 dotnet run --project "JARVIS.csproj" -c Debug
+if errorlevel 1 goto failed
+pause
+goto menu
+
+:checks
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0scripts\Check.ps1"
 if errorlevel 1 goto failed
 pause
 goto menu

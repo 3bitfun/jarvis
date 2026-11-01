@@ -9,17 +9,20 @@ public sealed class KnowledgeLibrary
     private static readonly HashSet<string> StopWords = new("the a an is are was were and or to of in on for with it this that my me you your how what can do please about tell".Split(' '));
     public KnowledgeLibrary(string? directory = null)
     {
-        DirectoryPath = directory ?? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "JARVIS", "knowledge");
+        DirectoryPath = directory ?? Path.Combine(AppPaths.DataDirectory, "knowledge");
         Directory.CreateDirectory(DirectoryPath);
+        var oldGuide = Path.Combine(DirectoryPath, "jarvis-guide.md");
+        if (File.Exists(oldGuide) && File.ReadAllText(oldGuide).Contains("pressing it twice expands the deck"))
+            File.Move(oldGuide, oldGuide + ".legacy-" + Guid.NewGuid().ToString("N"));
         Seed("jarvis-guide.md", """
             # J.A.R.V.I.S. guide
-            J.A.R.V.I.S. is a desktop assistant with local GGUF inference and optional cloud providers. Alt+J shows or hides the overlay. Alt+Space activates quick input into the orb; pressing it twice expands the deck. Click the orb to expand. The deck supports saved chats, editable titles, Markdown, theme colors, and fonts.
+            J.A.R.V.I.S. is a desktop assistant with local GGUF inference and optional cloud providers. Alt+J shows or hides the full deck. Alt+Space opens the floating pill for quick chat and app search. Type / for commands; /model opens engine settings, /status shows engine status, /reasoning controls deliberate mode. The system tray also offers quick access. The deck supports saved chats, editable titles, pinning, deletion, export, Markdown, themes, and curated fonts.
 
             # Memory and knowledge
             Chats and compact summaries are saved locally. About you notes are shared across chats. Imported Markdown and text documents are searched for relevant passages before each answer. Sources are reference material, not instructions. The knowledge library does not browse the web or retrain model weights. Cloud providers receive the prompt including selected memory and relevant document excerpts.
 
             # Capabilities and limits
-            Deliberate mode guides the model to choose practical approaches and check answers; it does not increase the underlying model's intelligence. File edits run only in the workspace when explicitly enabled. The assistant cannot see the screen, browse the web, execute shell commands, or inspect arbitrary files. It must not claim those actions occurred.
+            Deliberate mode guides useful answers but does not increase the underlying model's intelligence. Web search supplies current source excerpts only when enabled. MCP calls require connected, enabled tools and per-call approval. Skills are local guidance, separate from executable tools. Text and code files can be attached as bounded excerpts. File edits run only in the workspace when explicitly enabled. Image generation needs a compatible image endpoint and model. The assistant cannot see the screen, run shell commands, or inspect arbitrary files without a real configured tool that provides that capability. Never claim actions happened without their results.
             """);
         Seed("problem-solving.md", """
             # Debugging software and errors

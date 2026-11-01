@@ -2,6 +2,8 @@
 
 A C# / .NET 8 Avalonia desktop assistant with local GGUF and cloud providers, a quick chat/app launcher, a full chat window, memory, skills, and MCP tools.
 
+Version 1.1.0 adds tray access, single-instance launch handling, first-run setup, encrypted drafts, recovery backups, richer Markdown, and dedicated image-service settings. See [release notes and checks](RELEASE.md) and [the changelog](CHANGELOG.md).
+
 ## Develop
 
 Install the .NET 8 SDK or a compatible later SDK, then run:
@@ -28,6 +30,8 @@ Downloaded models are excluded from Git. A fresh clone contains an empty `models
 ```
 
 The resulting EXE is written to `dist/installer`. Setup can import an optional GGUF; cloud-only installation requires none. For build tooling and bundled-model options, see [installer instructions](installer/README.md).
+
+Run `scripts/Check.ps1` for the isolated regression suite or add `-Extended` for native launcher, font, and glass checks. The same core suite is configured in `.github/workflows/build.yml` for a future GitHub remote.
 
 ## Version control
 

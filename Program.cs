@@ -9,6 +9,9 @@ internal static class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        if (args.Length > 0 && args[0].StartsWith("--check-"))
+            Environment.SetEnvironmentVariable("JARVIS_DATA_DIR", Path.Combine(Path.GetTempPath(), "JARVIS-check-run-" + Guid.NewGuid().ToString("N")));
+        if (args.Length == 1 && args[0] == "--check-readiness") { ReadinessChecks.RunAsync().GetAwaiter().GetResult(); return; }
         if (args.Length == 1 && args[0] == "--check-fonts-glass")
         {
             BuildAvaloniaApp().SetupWithoutStarting();
@@ -28,6 +31,11 @@ internal static class Program
         {
             BuildAvaloniaApp().SetupWithoutStarting();
             var main = new MainWindow(false);
+            using var markdown = new MarkdownChat();
+            var link = (StackPanel)markdown.Render("[Documentation](https://example.org/docs)");
+            if (link.Children.OfType<TextBlock>().Single().Inlines!.OfType<Avalonia.Controls.Documents.InlineUIContainer>().Count() != 1) throw new InvalidOperationException("Markdown links are not rendered as native clickable links.");
+            var table = (StackPanel)markdown.Render("| Name | Value |\n|---|---|\n| A | B |");
+            if (!table.Children.OfType<Grid>().Any()) throw new InvalidOperationException("Markdown tables are not rendered as grids.");
             var mini = new MiniLauncherWindow();
             mini.FindControl<TextBox>("IdleInput")!.Text = "hello";
             Dispatcher.UIThread.RunJobs();
@@ -75,7 +83,13 @@ internal static class Program
             return;
         }
 
-        BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+        using var instance = new DesktopInstance();
+        if (!instance.IsPrimary) { instance.ActivateExistingAsync().GetAwaiter().GetResult(); return; }
+        DesktopInstance.Current = instance;
+        AppDomain.CurrentDomain.UnhandledException += (_, e) => { if (e.ExceptionObject is Exception ex) AppDiagnostics.Write(ex); };
+        TaskScheduler.UnobservedTaskException += (_, e) => AppDiagnostics.Write(e.Exception);
+        try { BuildAvaloniaApp().StartWithClassicDesktopLifetime(args); }
+        catch (Exception ex) { AppDiagnostics.Write(ex); throw; }
     }
 
     public static AppBuilder BuildAvaloniaApp() =>

@@ -55,7 +55,7 @@ public sealed class McpManager : IAsyncDisposable
         public IList<McpClientTool> Tools { get; } = tools;
     }
 
-    private readonly Dictionary<string, Connection> _connections = new(StringComparer.Ordinal);
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<string, Connection> _connections = new(StringComparer.Ordinal);
     private readonly SemaphoreSlim _gate = new(1, 1);
     private AppConfig? _config;
     private Action? _save;
@@ -66,6 +66,7 @@ public sealed class McpManager : IAsyncDisposable
         config.McpServers ??= new();
         foreach (var profile in config.McpServers)
         {
+            profile.Name ??= "Custom MCP"; profile.Transport ??= "stdio"; profile.Command ??= ""; profile.Endpoint ??= ""; profile.WorkingDirectory ??= "";
             profile.Arguments ??= new(); profile.EnabledTools ??= new();
             profile.EnvironmentVariables ??= new(StringComparer.OrdinalIgnoreCase);
             profile.Headers ??= new(StringComparer.OrdinalIgnoreCase);
@@ -82,7 +83,7 @@ public sealed class McpManager : IAsyncDisposable
         await _gate.WaitAsync(cancellationToken);
         try
         {
-            if (_connections.Remove(profile.Id, out var old)) await old.Client.DisposeAsync();
+            if (_connections.TryRemove(profile.Id, out var old)) await old.Client.DisposeAsync();
             IClientTransport transport;
             if (profile.Transport.Equals("stdio", StringComparison.OrdinalIgnoreCase))
             {
@@ -138,7 +139,7 @@ public sealed class McpManager : IAsyncDisposable
     public async Task DisconnectAsync(string id)
     {
         await _gate.WaitAsync();
-        try { if (_connections.Remove(id, out var connection)) await connection.Client.DisposeAsync(); }
+        try { if (_connections.TryRemove(id, out var connection)) await connection.Client.DisposeAsync(); }
         finally { _gate.Release(); }
     }
 

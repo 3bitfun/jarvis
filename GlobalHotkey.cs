@@ -16,14 +16,16 @@ internal sealed class GlobalHotkey : IDisposable
             _threadId = GetCurrentThreadId();
             PeekMessage(out _, IntPtr.Zero, 0, 0, 0);
             var petRegistered = RegisterHotKey(IntPtr.Zero, 1, 0x4001, 0x20);
+            var petError = Marshal.GetLastWin32Error();
             var deckRegistered = RegisterHotKey(IntPtr.Zero, 2, 0x4001, 0x4A);
+            var deckError = Marshal.GetLastWin32Error();
             if (!petRegistered || !deckRegistered)
             {
-                var message = new Win32Exception(Marshal.GetLastWin32Error()).Message;
-                Dispatcher.UIThread.Post(() => error("Global shortcut unavailable: " + message));
-                if (petRegistered) UnregisterHotKey(IntPtr.Zero, 1);
-                if (deckRegistered) UnregisterHotKey(IntPtr.Zero, 2);
-                return;
+                var message = string.Join(" ", new[] {
+                    petRegistered ? "Alt+Space is ready." : "Alt+Space is unavailable: " + new Win32Exception(petError).Message,
+                    deckRegistered ? "Alt+J is ready." : "Alt+J is unavailable: " + new Win32Exception(deckError).Message });
+                Dispatcher.UIThread.Post(() => error(message + " Use the J.A.R.V.I.S. tray menu if a shortcut is in use by another app."));
+                if (!petRegistered && !deckRegistered) return;
             }
             try
             {
