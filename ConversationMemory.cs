@@ -161,6 +161,13 @@ public sealed class ConversationMemory
         return count;
     }
 
+    public void EditSummary(string summary)
+    {
+        _state.Summary = summary.Trim();
+        if (string.IsNullOrWhiteSpace(summary)) _state.CompactedCount = 0;
+        Save();
+    }
+
     public void Compact(int count, string summary)
     {
         if (count <= 0 || count > _state.Turns.Count - _state.CompactedCount)

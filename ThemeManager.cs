@@ -4,11 +4,16 @@ namespace JARVIS;
 public static class ThemeManager
 {
     public static void ApplyFont(string family) => Application.Current!.Resources["AppFont"] = new FontFamily(family);
-    public static readonly string[] Profiles = { "Obsidian Glass", "Neon Arc", "Gritty Stone", "Industrial Rust", "Custom" };
+    public static readonly string[] Profiles = { "Minimalist", "Terminal", "ChatGPT Style", "GitHub Style", "Neon", "Obsidian Glass", "Neon Arc", "Gritty Stone", "Industrial Rust", "Custom" };
     public static void Apply(string profile, string accent, string tint)
     {
         var colors = profile switch
         {
+            "Minimalist" => ("#E4E4E7", "#18181B"),
+            "Terminal" => ("#8CF09C", "#090D09"),
+            "ChatGPT Style" => ("#7ED0B1", "#212121"),
+            "GitHub Style" => ("#58A6FF", "#0D1117"),
+            "Neon" => ("#FC5EDB", "#100C22"),
             "Neon Arc" => ("#43DCEE", "#151C24"),
             "Gritty Stone" => ("#B98B87", "#202022"),
             "Industrial Rust" => ("#D6A275", "#241F1D"),

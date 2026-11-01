@@ -35,7 +35,14 @@ public sealed class AppConfig
     public string Workspace { get; set; } = Path.Combine(AppPaths.DataDirectory, "workspace");
     public bool FileTools { get; set; }
     public bool DeliberateMode { get; set; } = true;
-    public int ResponseTokens { get; set; } = 768;
+    public int ResponseTokens { get; set; } = 1024;
+    public bool GlassEnabled { get; set; } = true;
+    public bool SetupCompleted { get; set; }
+    public string DisplayName { get; set; } = "";
+    public string QuickShortcut { get; set; } = "Alt+Space";
+    public string DeckShortcut { get; set; } = "Alt+J";
+    public string ResponseMode { get; set; } = "Quick";
+    public Dictionary<string, string> ChatModes { get; set; } = new();
     public double Temperature { get; set; } = 0.6;
     public ProviderProfile ImageProvider { get; set; } = new();
     public Dictionary<string, string> Drafts { get; set; } = new();
@@ -71,6 +78,8 @@ public sealed class AppConfig
             else { stored.BaseUrl ??= profile.BaseUrl; stored.ApiKey ??= ""; stored.Model ??= ""; }
         }
         if (ActiveProvider != "Local" && !defaults.Providers.ContainsKey(ActiveProvider ?? "")) ActiveProvider = "Local";
+        ChatModes ??= new();
+        try { GlobalHotkey.Parse(QuickShortcut); GlobalHotkey.Parse(DeckShortcut); } catch { QuickShortcut = "Alt+Space"; DeckShortcut = "Alt+J"; }
         DisabledSkills ??= new(); Drafts ??= new(); McpServers ??= new();
         ImageProvider ??= new(); ImageProvider.BaseUrl ??= ""; ImageProvider.ApiKey ??= ""; ImageProvider.Model ??= "";
         FavoriteAppPaths ??= new(); RecentAppPaths ??= new(); ShortcutAppPaths ??= new(); WorkRoutineAppPaths ??= new();

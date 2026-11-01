@@ -57,3 +57,11 @@ git push -u origin main
 ```
 
 Builds, installers, logs, model weights, and private local data are ignored. Commit source, UI styles, documentation, installer scripts, and font license files.
+
+### 1.2.1 controls
+
+The composer offers Instant, Quick, and Think more, remembered per chat. Instant limits replies to 256 tokens and skips local knowledge retrieval. These modes guide the model; provider-specific hidden reasoning controls are not assumed. New profiles default to 1024 reply tokens; existing settings remain saved.
+
+Settings → Style includes glass on/off and editable global shortcuts. Minimalist, Terminal, GitHub Style and ChatGPT Style use solid surfaces, with different corner sizes, density or font. These profiles retain the same navigation structure. About includes credits, version, updater and welcome tutorial replay. The full deck no longer stays above other apps.
+
+The welcome tutorial accepts an optional name and offers a GGUF download, cloud/local setup, starter actions, memory choice and skip. Model downloads remain optional. Automatic titles prefer an installed local GGUF and fall back to the first prompt if generation fails; manually renamed chats are preserved. Knowledge settings can inspect, edit or reset the active compact summary. Raw chat history remains available.

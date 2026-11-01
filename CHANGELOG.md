@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 1.2.1 — 2026-11-01
+
+- Added first-run welcome, optional name, model download, starter actions, privacy choice, skip, and replay from About.
+- Added per-chat Instant, Quick, and Think more modes and a 1024-token default reply limit.
+- Added generated chat titles with preference for installed local GGUFs and a first-message fallback; titles remain editable.
+- Bounded compact summaries, reserved more context space for local replies, and added summary inspection/edit/reset.
+- Fixed Enter sending before multiline text processing; Shift+Enter inserts a newline.
+- Full deck now behaves as a normal window; compact mode stays above other windows.
+- Added solid appearance, Minimalist, Terminal, ChatGPT Style, GitHub Style, and Neon profiles with shape/density/font differences.
+- Added editable global shortcuts, About credits/tutorial access, and a published-update notice.
+
+
 ## 1.2.0 — 2026-11-01
 
 - Added an in-app updater under Settings → About. It checks published GitHub releases, downloads the Windows installer on request, verifies its release SHA-256, and opens setup.

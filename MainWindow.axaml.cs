@@ -68,6 +68,7 @@ public partial class MainWindow : Window
         ThemeManager.ApplyFont(_config.FontFamily);
         InitializeComponent();
         InitializeDownloads();
+        InitializeReleaseFeatures(autoLoadModel);
         GlassBackdrop.Configure(this, text => GlassStatus.Text = text);
         HomePage.NewChatRequested += NewChat_Click;
         HomePage.QuickBarRequested += (_, _) => ToggleQuickBar();
@@ -124,7 +125,7 @@ public partial class MainWindow : Window
             _orbPosition = Position;
             if (OperatingSystem.IsWindows())
             {
-                _hotkeys = new GlobalHotkey(ToggleQuickBar, ToggleFullDeck, HotkeyError);
+                _hotkeys = new GlobalHotkey(ToggleQuickBar, ToggleFullDeck, HotkeyError, _config.QuickShortcut, _config.DeckShortcut);
             }
             if (configError is not null) { SetMode(HudMode.EXPANDED_DECK); StatusText.Text = configError; }
             else if ((_store.RecoveryNotice ?? _engine.MemoryRecoveryNotice) is { } recoveredNotice)
@@ -139,6 +140,7 @@ public partial class MainWindow : Window
             ModelComboBox.SelectedItem = _engine.LocalModels.Contains(_config.PreferredLocalModel) ? _config.PreferredLocalModel : _engine.LocalModels[0];
         _ = RefreshAppsAsync();
         InitializeShell(autoLoadModel);
+        ApplyAppearance();
     }
     private void HotkeyError(string text) { SetMode(HudMode.EXPANDED_DECK); StatusText.Text = text; }
     private void TogglePetVisibility()
@@ -174,6 +176,7 @@ public partial class MainWindow : Window
     private void Hide_Click(object? s, RoutedEventArgs e) => Hide();
     private void SetMode(HudMode next)
     {
+        Topmost = next != HudMode.EXPANDED_DECK;
         if (_mode == next && WindowState != WindowState.Minimized) return;
         if (next == HudMode.EXPANDED_DECK)
         {
@@ -283,7 +286,7 @@ public partial class MainWindow : Window
         finally { SetBusy(false); }
     }
     private async void Send_Click(object? s, RoutedEventArgs e) => await SendAsync();
-    private async void PromptBox_KeyDown(object? s, KeyEventArgs e) { if (e.Key == Key.Enter && !e.KeyModifiers.HasFlag(KeyModifiers.Shift) && !_busy) { e.Handled = true; await SendAsync(); } }
+    private async void PromptBox_KeyDown(object? s, KeyEventArgs e) { if (e.Key != Key.Enter || e.KeyModifiers.HasFlag(KeyModifiers.Shift)) return; e.Handled = true; if (!_busy) await SendAsync(); }
     private async Task SendAsync(string? orbPrompt = null, bool quickReply = false)
     {
         var text = (orbPrompt ?? PromptBox.Text)?.Trim(); if (_busy || string.IsNullOrWhiteSpace(text)) return;
@@ -459,6 +462,7 @@ public partial class MainWindow : Window
     }
     private void ShowConversation()
     {
+        if (_responseChoice is not null) _responseChoice.SelectedItem = _config.ChatModes.GetValueOrDefault(_engine.ActiveChatId, _config.ResponseMode);
         _markdown?.Dispose(); _markdown = new MarkdownChat(); ChatLog.Children.Clear();
         if (_engine.Conversation.Count == 0)
         {
@@ -539,7 +543,7 @@ public partial class MainWindow : Window
     private void CustomColor_Changed(object? s, ColorChangedEventArgs e)
     { if (!_ready) return; _config.Accent = AccentPicker.Color.ToString(); _config.Tint = TintPicker.Color.ToString(); ApplyTheme(); }
     private void ApplyTheme()
-    { ThemeManager.Apply(_config.Theme, _config.Accent, _config.Tint); ShowConversation(); try { _store.Save(_config); } catch (Exception) { StatusText.Text = "Could not save theme."; } }
+    { ThemeManager.Apply(_config.Theme, _config.Accent, _config.Tint); ApplyAppearance(); ShowConversation(); try { _store.Save(_config); } catch (Exception) { StatusText.Text = "Could not save theme."; } }
     private void LoadProvider()
     {
         var local = _config.ActiveProvider == "Local"; EndpointBox.IsVisible = ApiKeyBox.IsVisible = CloudModelPanel.IsVisible = !local;
@@ -553,7 +557,7 @@ public partial class MainWindow : Window
         {
             if (_config.ActiveProvider != "Local") { var p = _config.Providers[_config.ActiveProvider]; p.BaseUrl = EndpointBox.Text?.Trim() ?? ""; p.ApiKey = ApiKeyBox.Text?.Trim() ?? ""; p.Model = CloudModelBox.Text?.Trim() ?? ""; }
             _config.Workspace = Path.GetFullPath(WorkspaceBox.Text ?? ""); _config.FileTools = FileToolsCheck.IsChecked == true;
-            _config.Temperature = (double)(TemperatureInput.Value ?? .6m); _config.ResponseTokens = (int)(ResponseLengthInput.Value ?? 768);
+            _config.Temperature = (double)(TemperatureInput.Value ?? .6m); _config.ResponseTokens = (int)(ResponseLengthInput.Value ?? 1024);
             _config.ImageProvider = new ProviderProfile { BaseUrl = ImageEndpointInput.Text?.Trim() ?? "", ApiKey = ImageKeyInput.Text?.Trim() ?? "", Model = ImageModelInput.Text?.Trim() ?? "" };
             _config.Normalize();
             _store.Save(_config); UpdateEngineBadge(); StatusText.Text = "Settings saved • " + _config.ActiveProvider;
