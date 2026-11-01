@@ -1,0 +1,165 @@
+<Window xmlns="https://github.com/avaloniaui" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml" xmlns:local="using:JARVIS"
+ x:Class="JARVIS.MainWindow" Title="J.A.R.V.I.S." Width="96" Height="96"
+ TransparencyLevelHint="AcrylicBlur,Transparent" Background="Transparent" SystemDecorations="None" Topmost="True"
+ RequestedThemeVariant="Dark" FontFamily="{DynamicResource AppFont}" FontSize="14">
+
+ <Grid>
+  <TextBox x:Name="OrbInput" Opacity="0" Width="1" Height="1" KeyDown="OrbInput_KeyDown"/>
+  <Border x:Name="CompactView" CornerRadius="48" Background="{DynamicResource GlassBrush}" BorderBrush="{DynamicResource AccentBrush}" BorderThickness="1.5" PointerPressed="Background_PointerPressed" BoxShadow="0 4 18 0 #40000000">
+   <Button Classes="quiet" Padding="4" HorizontalAlignment="Center" VerticalAlignment="Center" Click="Expand_Click" ToolTip.Tip="Open the full deck · Alt+Space opens quick chat and apps">
+    <Grid Width="68" Height="68"><Ellipse Stroke="{DynamicResource LineBrush}" StrokeThickness="1"/><Ellipse Stroke="{DynamicResource AccentBrush}" StrokeThickness="1.5" Margin="8"/><Ellipse Stroke="{DynamicResource LineBrush}" StrokeThickness="4" Margin="16"/><TextBlock Text="J" FontWeight="Bold" FontSize="28" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center"/></Grid>
+   </Button>
+  </Border>
+  <Border x:Name="ExpandedView" IsVisible="False" Background="Transparent" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="24" ClipToBounds="True" PointerPressed="Background_PointerPressed">
+   <Border.Transitions><Transitions><DoubleTransition Property="Opacity" Duration="0:0:0.18"/><TransformOperationsTransition Property="RenderTransform" Duration="0:0:0.18"/></Transitions></Border.Transitions>
+   <Grid>
+    <ExperimentalAcrylicBorder CornerRadius="24" Material="{DynamicResource GlassMaterial}" IsHitTestVisible="False"/>
+    <Border Background="{DynamicResource GlassHighlightBrush}" CornerRadius="24" IsHitTestVisible="False"/>
+   <Grid RowDefinitions="*,30" ColumnDefinitions="240,*">
+    <Border Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,1,0">
+     <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" Margin="16,24,16,14" RowSpacing="18">
+      <StackPanel Orientation="Horizontal" Spacing="12" Margin="8,0,0,4"><Border Background="{DynamicResource RaisedBrush}" CornerRadius="12" Width="42" Height="42"><TextBlock Text="J" FontSize="24" Foreground="{DynamicResource AccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold"/></Border><StackPanel VerticalAlignment="Center" Spacing="3"><TextBlock Text="Jarvis" FontSize="19" FontWeight="SemiBold"/><TextBlock Text="A little help, always nearby" Classes="muted" FontSize="11"/></StackPanel></StackPanel>
+      <StackPanel Grid.Row="1" Spacing="8"><Button x:Name="HomeButton" Content="⌂  Home" HorizontalAlignment="Stretch" HorizontalContentAlignment="Left" Click="Home_Click"/><Button x:Name="NewChatButton" Classes="primary" Content="＋  New conversation" HorizontalAlignment="Stretch" Click="NewChat_Click"/></StackPanel>
+      <TextBox x:Name="ChatSearch" Grid.Row="2" Watermark="Search chats and messages" TextChanged="ChatSearch_Changed"/>
+      <Grid Grid.Row="3" RowDefinitions="Auto,*" RowSpacing="10"><TextBlock Classes="label" Text="Conversations" Margin="8,0"/><ListBox x:Name="ChatsList" Grid.Row="1" Background="Transparent" SelectionChanged="Chats_SelectionChanged"><ListBox.ItemTemplate><DataTemplate><Grid ColumnDefinitions="*,Auto"><TextBlock Text="{Binding Title}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center"/><Button Grid.Column="1" Content="{Binding PinGlyph}" Classes="quiet" Padding="5" Click="PinChat_Click" ToolTip.Tip="Pin or unpin conversation"/></Grid></DataTemplate></ListBox.ItemTemplate></ListBox></Grid>
+      <StackPanel Grid.Row="4" Spacing="8"><Border Background="{DynamicResource RaisedBrush}" CornerRadius="10" Padding="12"><StackPanel Spacing="5"><TextBlock x:Name="EngineBadge" Text="● Local engine" Foreground="{DynamicResource AccentBrush}" FontSize="12"/><TextBlock x:Name="KnowledgeBadge" Text="Knowledge ready" Classes="muted" FontSize="11"/></StackPanel></Border><Button Classes="quiet" Content="⚙  Settings and knowledge" Click="Settings_Click" HorizontalAlignment="Stretch"/></StackPanel>
+     </Grid>
+    </Border>
+    <Grid Grid.Column="1" RowDefinitions="76,*">
+     <Border BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,0,0,1" Padding="24,10">
+      <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12"><StackPanel VerticalAlignment="Center"><TextBlock x:Name="Breadcrumb" Classes="label" Text="Workspace / Home"/><TextBlock x:Name="HomeTitle" Text="Home" FontSize="19" FontWeight="SemiBold" Margin="0,6"/><TextBox x:Name="ChatTitle" IsVisible="False" Text="New chat" FontSize="19" FontWeight="SemiBold" Background="Transparent" BorderThickness="0" Padding="0,6" LostFocus="ChatTitle_LostFocus" KeyDown="ChatTitle_KeyDown" ToolTip.Tip="Click to rename this conversation"/></StackPanel><StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="4" VerticalAlignment="Center"><Button x:Name="ActivePinButton" Classes="quiet" Content="☆" Click="ToggleActivePin_Click" ToolTip.Tip="Pin conversation"/><Button x:Name="ExportChatButton" Classes="quiet" Content="⇩" Click="ExportChat_Click" ToolTip.Tip="Export conversation as Markdown"/><Button Classes="quiet" Content="⚙" Click="Settings_Click" ToolTip.Tip="Settings"/><Button Classes="quiet" Content="⛶" Click="Fullscreen_Click" ToolTip.Tip="Full screen"/><Button Classes="quiet" Content="◉" Click="Collapse_Click" ToolTip.Tip="Collapse to orb"/><Button Classes="quiet" Content="—" Click="Hide_Click" ToolTip.Tip="Hide full deck · Alt+J"/></StackPanel></Grid>
+     </Border>
+     <SplitView x:Name="SettingsSplitView" Grid.Row="1" DisplayMode="Overlay" PanePlacement="Right" OpenPaneLength="380" IsPaneOpen="False">
+      <SplitView.Pane>
+       <Border Background="{DynamicResource SettingsBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1,0,0,0" Padding="20">
+        <Grid RowDefinitions="Auto,*" RowSpacing="14">
+         <Grid ColumnDefinitions="*,Auto"><TextBlock Text="Make it yours" FontSize="21" FontWeight="SemiBold" VerticalAlignment="Center"/><Button Grid.Column="1" Classes="quiet" Content="✕" Click="Settings_Click" ToolTip.Tip="Close settings"/></Grid>
+         <TabControl x:Name="SettingsControls" Grid.Row="1">
+          <TabItem Header="Engine"><ScrollViewer><StackPanel Spacing="14" Margin="0,18,0,10">
+           <TextBlock Text="Intelligence" FontSize="17" FontWeight="SemiBold"/>
+           <CheckBox x:Name="DeliberateCheck" Content="Deliberate mode" IsCheckedChanged="Deliberate_Changed"/>
+           <TextBlock Text="Checks answers and chooses sensible defaults. Model size still determines capability." TextWrapping="Wrap" Classes="muted" FontSize="12"/>
+           <TextBlock Classes="label" Text="Provider"/><ComboBox x:Name="ProviderChoice" SelectionChanged="Provider_Changed"/>
+           <TextBox x:Name="EndpointBox" Watermark="Base URL or full chat endpoint"/>
+           <TextBox x:Name="ApiKeyBox" PasswordChar="●" Watermark="API key"/>
+           <StackPanel x:Name="CloudModelPanel" Spacing="8">
+            <Button x:Name="FetchModelsButton" Content="↻  Fetch provider models" Click="FetchProviderModels_Click"/>
+            <ComboBox x:Name="CloudModelChoice" PlaceholderText="Choose a fetched model or Custom model ID" SelectionChanged="CloudModel_Changed" MaxDropDownHeight="280"/>
+            <TextBox x:Name="CloudModelBox" Watermark="Custom model ID / slug, e.g. provider/model-name"/>
+            <TextBlock x:Name="ProviderModelsStatus" Classes="muted" FontSize="11" TextWrapping="Wrap" Text="Fetch uses the endpoint and key above. Custom model IDs work even if model listing is unavailable. Save engine settings to apply."/>
+           </StackPanel>
+           <TextBlock Classes="label" Text="Local model"/><ComboBox x:Name="ModelComboBox" ItemsSource="{Binding LocalModels}" SelectionChanged="ModelComboBox_SelectionChanged"/>
+           <TextBlock x:Name="ModelsHint" TextWrapping="Wrap" Classes="muted" FontSize="11"/><Button Content="↻  Refresh model list" Click="RefreshModels_Click"/>
+           <StackPanel Orientation="Horizontal" Spacing="8"><Button Content="＋  Import GGUF" Click="ImportGguf_Click"/><Button Content="Open models folder" Click="OpenModelsFolder_Click"/></StackPanel>
+           <Expander Header="How to add your own local GGUF"><TextBlock Classes="muted" FontSize="12" TextWrapping="Wrap" Text="1. Download a complete .gguf file for a llama.cpp-compatible text/chat model from a publisher you trust. Use an Instruct or Chat variant.&#10;&#10;2. Choose Import GGUF to copy it into this app's models folder, or use Open models folder and copy it yourself. ZIP archives and safetensors files cannot be loaded directly. Split GGUF models are not supported by this importer.&#10;&#10;3. Select Local as your provider, refresh the model list, then choose the file. Loading can take a while.&#10;&#10;The folder is beside the executable, so Debug and published builds have different models folders. The full path is displayed above.&#10;&#10;This build runs local models on CPU. Allow RAM for both weights and context; the download size alone is not the total requirement. Start with a small quantized model if memory is limited."/></Expander>
+           <Expander Header="Workspace file tools"><StackPanel Spacing="12"><TextBox x:Name="WorkspaceBox" Watermark="Workspace directory"/><CheckBox x:Name="FileToolsCheck" Content="Allow model file edits"/><TextBlock Text="Edits are confined to this workspace. Cloud providers receive the context needed for your request." Classes="muted" TextWrapping="Wrap" FontSize="12"/></StackPanel></Expander>
+           <Button Classes="primary" Content="Save engine settings" Click="SaveConfig_Click"/>
+          </StackPanel></ScrollViewer></TabItem>
+          <TabItem Header="Knowledge"><ScrollViewer><StackPanel Spacing="14" Margin="0,18,0,10">
+           <TextBlock Text="A little more context." FontSize="17" FontWeight="SemiBold"/>
+           <TextBlock Text="Teach J.A.R.V.I.S. about your preferences and projects. Relevant passages are retrieved before it answers." Classes="muted" TextWrapping="Wrap" FontSize="12"/>
+           <TextBlock Classes="label" Text="About you · shared across chats"/>
+           <TextBox x:Name="ProfileBox" AcceptsReturn="True" TextWrapping="Wrap" Height="150" MaxLength="800" Watermark="Your name, interests, preferred answer style, current projects…"/>
+           <Button Content="Save personal context" Click="SaveProfile_Click"/>
+           <Border Background="{DynamicResource RaisedBrush}" CornerRadius="10" Padding="12"><StackPanel Spacing="9"><TextBlock Text="Privacy" FontWeight="SemiBold"/><CheckBox x:Name="MemoryCheck" Content="Use and save memory" IsCheckedChanged="Memory_Changed"/><TextBlock Text="Pause to stop using saved context and keep new messages only for this session. Existing chat history stays saved until you clear it." Classes="muted" FontSize="11" TextWrapping="Wrap"/><Button Content="Clear saved details and chat contents" Click="ClearMemory_Click"/></StackPanel></Border>
+           <CheckBox x:Name="KnowledgeCheck" Content="Use local knowledge" IsCheckedChanged="Knowledge_Changed"/>
+           <TextBlock x:Name="KnowledgeDetails" TextWrapping="Wrap" Classes="muted" FontSize="12"/>
+           <Button Classes="primary" Content="＋  Import text or Markdown" Click="ImportKnowledge_Click"/>
+           <Button Content="↻  Refresh knowledge" Click="RefreshKnowledge_Click"/>
+           <TextBlock Text="Files stay local. Selected passages are included when you use a cloud engine. Import notes, project docs, study material, or writing guides. Up to 1 MB per file." TextWrapping="Wrap" Classes="muted" FontSize="12"/>
+          </StackPanel></ScrollViewer></TabItem>
+          <TabItem Header="Apps"><ScrollViewer><StackPanel Spacing="12" Margin="0,18,0,10">
+           <TextBlock Text="Apps and routines" FontSize="17" FontWeight="SemiBold"/>
+           <TextBlock Text="Favorites and recent apps appear first in the quick launcher. Assign apps to Alt+1–5 for fixed shortcuts." Classes="muted" TextWrapping="Wrap" FontSize="12"/>
+           <TextBox x:Name="AppSearchBox" Watermark="Search installed apps" TextChanged="AppSearch_Changed"/>
+           <ListBox x:Name="AppChoiceList" MaxHeight="170" Background="Transparent"><ListBox.ItemTemplate><DataTemplate><Grid ColumnDefinitions="*,Auto"><StackPanel><TextBlock Text="{Binding App.Name}"/><TextBlock Text="{Binding App.Path}" Classes="muted" FontSize="10" TextTrimming="CharacterEllipsis"/></StackPanel><Button Grid.Column="1" Content="{Binding FavoriteGlyph}" Click="AppFavorite_Click" Classes="quiet" ToolTip.Tip="Add or remove favorite"/></Grid></DataTemplate></ListBox.ItemTemplate></ListBox>
+           <Button Content="↻  Refresh installed apps" Click="RefreshApps_Click"/>
+           <TextBlock Classes="label" Text="Fixed shortcuts"/>
+           <ComboBox x:Name="Shortcut1" Tag="0" SelectionChanged="Shortcut_Changed" PlaceholderText="Alt+1 app"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate></ComboBox>
+           <ComboBox x:Name="Shortcut2" Tag="1" SelectionChanged="Shortcut_Changed" PlaceholderText="Alt+2 app"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate></ComboBox>
+           <ComboBox x:Name="Shortcut3" Tag="2" SelectionChanged="Shortcut_Changed" PlaceholderText="Alt+3 app"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate></ComboBox>
+           <ComboBox x:Name="Shortcut4" Tag="3" SelectionChanged="Shortcut_Changed" PlaceholderText="Alt+4 app"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate></ComboBox>
+           <ComboBox x:Name="Shortcut5" Tag="4" SelectionChanged="Shortcut_Changed" PlaceholderText="Alt+5 app"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate></ComboBox>
+           <TextBlock Classes="label" Text="Work focus routine"/>
+           <TextBlock Text="Choose up to three apps to open together, then start a focus countdown." Classes="muted" FontSize="12" TextWrapping="Wrap"/>
+           <ComboBox x:Name="RoutineApp1" Tag="0" SelectionChanged="RoutineApp_Changed" PlaceholderText="First work app"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate></ComboBox>
+           <ComboBox x:Name="RoutineApp2" Tag="1" SelectionChanged="RoutineApp_Changed" PlaceholderText="Second work app"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate></ComboBox>
+           <ComboBox x:Name="RoutineApp3" Tag="2" SelectionChanged="RoutineApp_Changed" PlaceholderText="Third work app"><ComboBox.ItemTemplate><DataTemplate><TextBlock Text="{Binding Name}"/></DataTemplate></ComboBox.ItemTemplate></ComboBox>
+           <TextBox x:Name="FocusMinutesBox" Watermark="Focus duration in minutes" Text="25"/>
+           <Button Classes="primary" Content="Start work focus" Click="StartRoutine_Click"/>
+           <TextBlock x:Name="FocusTimerText" Classes="muted" TextWrapping="Wrap"/>
+          </StackPanel></ScrollViewer></TabItem>
+          <TabItem Header="MCP"><ScrollViewer><StackPanel Spacing="12" Margin="0,18,0,10">
+           <TextBlock Text="Connect your tools" FontSize="17" FontWeight="SemiBold"/>
+           <TextBlock Text="Choose a curated server or configure your own. J.A.R.V.I.S. asks before each tool call; no server action runs silently." Classes="muted" TextWrapping="Wrap" FontSize="12"/>
+           <ComboBox x:Name="McpPresetChoice" SelectionChanged="McpPreset_Changed" MaxDropDownHeight="300"><ComboBox.ItemTemplate><DataTemplate><StackPanel Spacing="2"><TextBlock Text="{Binding Name}" FontWeight="Medium"/><TextBlock Text="{Binding Description}" Classes="muted" FontSize="10" TextWrapping="Wrap"/></StackPanel></DataTemplate></ComboBox.ItemTemplate></ComboBox>
+           <Button Classes="primary" Content="＋  Add curated server" Click="AddMcpPreset_Click"/>
+           <TextBlock Classes="label" Text="Your MCP servers"/>
+           <ListBox x:Name="McpServersList" MaxHeight="150" Background="Transparent" SelectionChanged="McpServer_SelectionChanged"><ListBox.ItemTemplate><DataTemplate><Grid ColumnDefinitions="*,Auto"><StackPanel Spacing="2"><TextBlock Text="{Binding Profile.Name}"/><TextBlock Text="{Binding Profile.Transport}" Classes="muted" FontSize="10"/></StackPanel><TextBlock Grid.Column="1" Text="{Binding ConnectionLabel}" Classes="muted" FontSize="10" VerticalAlignment="Center"/></Grid></DataTemplate></ListBox.ItemTemplate></ListBox>
+           <StackPanel Orientation="Horizontal" Spacing="6"><Button x:Name="McpConnectButton" Classes="primary" Content="Connect" Click="McpConnect_Click"/><Button x:Name="McpDisconnectButton" Content="Disconnect" Click="McpDisconnect_Click"/><Button Content="Remove" Click="RemoveMcp_Click"/></StackPanel>
+           <TextBlock x:Name="McpStatus" Classes="muted" TextWrapping="Wrap" FontSize="11"/>
+           <Expander Header="Edit selected or add custom server" IsExpanded="False"><StackPanel Spacing="8">
+            <TextBox x:Name="McpNameBox" Watermark="Server name"/>
+            <ComboBox x:Name="McpTransportChoice" SelectionChanged="McpTransport_Changed"><ComboBoxItem Content="stdio"/><ComboBoxItem Content="Streamable HTTP"/></ComboBox>
+            <StackPanel x:Name="McpStdioFields" Spacing="8"><TextBox x:Name="McpCommandBox" Watermark="Command, e.g. cmd.exe, uvx, docker"/><TextBox x:Name="McpArgumentsBox" AcceptsReturn="True" Height="70" TextWrapping="Wrap" Watermark="Arguments as a JSON array"/><TextBox x:Name="McpWorkingDirectoryBox" Watermark="Working directory (optional)"/><TextBox x:Name="McpEnvironmentBox" AcceptsReturn="True" Height="70" TextWrapping="Wrap" PasswordChar="●" Watermark="Environment variables JSON · secrets are encrypted"/></StackPanel>
+            <StackPanel x:Name="McpHttpFields" IsVisible="False" Spacing="8"><TextBox x:Name="McpEndpointBox" Watermark="HTTPS MCP endpoint, e.g. https://host/mcp"/><TextBox x:Name="McpHeadersBox" AcceptsReturn="True" Height="70" TextWrapping="Wrap" PasswordChar="●" Watermark="HTTP headers JSON · credentials are encrypted"/></StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="6"><Button Classes="quiet" Content="Save selected" Click="SaveMcpProfile_Click"/><Button Content="＋  Add custom" Click="AddCustomMcp_Click"/></StackPanel>
+            <CheckBox x:Name="McpAutoConnectCheck" Content="Reconnect automatically when J.A.R.V.I.S. starts" IsCheckedChanged="McpAutoConnect_Changed"/>
+           </StackPanel></Expander>
+           <TextBlock Classes="label" Text="Enabled tools"/><ListBox x:Name="McpToolsList" MaxHeight="220" Background="Transparent"><ListBox.ItemTemplate><DataTemplate><StackPanel Spacing="5" Margin="0,5"><CheckBox Content="{Binding DisplayName}" IsChecked="{Binding Enabled, Mode=OneWay}" IsCheckedChanged="McpTool_Changed"/><TextBlock Text="{Binding Description}" Classes="muted" FontSize="10" TextWrapping="Wrap"/></StackPanel></DataTemplate></ListBox.ItemTemplate></ListBox>
+           <TextBlock Text="Local servers require their runtime (such as Node.js, uv, or Docker) and run with your user permissions. Connect only to servers you trust. Remote servers use Streamable HTTP. Credentials are stored in the encrypted local configuration." Classes="muted" TextWrapping="Wrap" FontSize="11"/>
+          </StackPanel></ScrollViewer></TabItem>
+          <TabItem Header="Skills"><ScrollViewer><StackPanel Spacing="12" Margin="0,18,0,10">
+           <TextBlock Text="Skills" FontSize="17" FontWeight="SemiBold"/>
+           <TextBlock Text="Skills are local instruction guides stored separately from MCP tool servers. Enable only the guidance you want J.A.R.V.I.S. to use." Classes="muted" TextWrapping="Wrap" FontSize="12"/>
+           <StackPanel Orientation="Horizontal" Spacing="8"><Button Classes="primary" Content="＋  Import SKILL.md" Click="ImportSkill_Click"/><Button Content="↻  Refresh" Click="RefreshSkills_Click"/></StackPanel>
+           <TextBlock x:Name="SkillsStatus" Classes="muted" TextWrapping="Wrap" FontSize="11"/>
+           <ListBox x:Name="SkillsList" Background="Transparent" MaxHeight="420"><ListBox.ItemTemplate><DataTemplate><StackPanel Spacing="4" Margin="0,6"><CheckBox Content="{Binding Name}" IsChecked="{Binding Enabled}" IsCheckedChanged="SkillEnabled_Changed"/><TextBlock Text="{Binding Description}" Classes="muted" FontSize="10" TextWrapping="Wrap"/></StackPanel></DataTemplate></ListBox.ItemTemplate></ListBox>
+           <TextBlock Text="Import a trusted SKILL.md file. Skill content is included as model guidance; it cannot grant additional app permissions." Classes="muted" TextWrapping="Wrap" FontSize="11"/>
+          </StackPanel></ScrollViewer></TabItem>
+          <TabItem Header="Style"><ScrollViewer><StackPanel Spacing="14" Margin="0,18,0,10">
+           <TextBlock Text="Your space. Your style." FontSize="17" FontWeight="SemiBold"/>
+           <TextBlock Classes="label" Text="Theme"/><ComboBox x:Name="ThemeChoice" SelectionChanged="Theme_Changed"/>
+           <TextBlock Classes="label" Text="Font"/>
+           <ComboBox x:Name="FontChoice" SelectionChanged="Font_Changed" MaxDropDownHeight="380">
+            <ComboBox.ItemTemplate><DataTemplate><StackPanel Spacing="3" Margin="0,3"><TextBlock Text="{Binding Name}" FontWeight="Medium"/><TextBlock Text="{Binding Description}" Classes="muted" FontSize="11"/></StackPanel></DataTemplate></ComboBox.ItemTemplate>
+           </ComboBox>
+           <StackPanel x:Name="CustomFontPanel" IsVisible="False" Spacing="8"><TextBox x:Name="CustomFontBox" Watermark="Installed font family, e.g. Avenir Next"/><Button Content="Apply custom font" Click="CustomFont_Click"/></StackPanel>
+           <TextBlock x:Name="FontHint" Classes="muted" TextWrapping="Wrap" FontSize="12"/>
+           <TextBlock Text="The quick brown fox jumps over the lazy dog. 0123456789" FontSize="18" TextWrapping="Wrap" Margin="0,4"/>
+           <TextBlock Classes="label" Text="Desktop glass"/><TextBlock x:Name="GlassStatus" Classes="muted" TextWrapping="Wrap" FontSize="12"/>
+           <Expander Header="Custom theme colors"><StackPanel Spacing="10"><TextBlock Text="Accent"/><ColorPicker x:Name="AccentPicker" ColorChanged="CustomColor_Changed"/><TextBlock Text="Glass tint"/><ColorPicker x:Name="TintPicker" ColorChanged="CustomColor_Changed"/></StackPanel></Expander>
+           <Border Background="{DynamicResource RaisedBrush}" CornerRadius="10" Padding="14"><StackPanel Spacing="8"><TextBlock Text="Always close by" FontWeight="SemiBold"/><TextBlock Text="Alt+Space   Quick chat / app launcher&#10;Alt+J   Open / close full deck&#10;Click orb   Expand deck&#10;Enter   Send&#10;Shift+Enter   New line" Classes="muted" FontSize="12" LineHeight="23"/></StackPanel></Border>
+           <Button Classes="quiet" Content="Quit J.A.R.V.I.S." Click="Close_Click"/>
+          </StackPanel></ScrollViewer></TabItem>
+         </TabControl>
+        </Grid>
+       </Border>
+      </SplitView.Pane>
+      <SplitView.Content>
+       <Grid>
+       <local:HomeView x:Name="HomePage"/>
+       <Grid x:Name="ChatArea" IsVisible="False" RowDefinitions="*,Auto" Margin="26,0">
+        <ScrollViewer x:Name="ChatScroll" HorizontalScrollBarVisibility="Disabled"><StackPanel x:Name="ChatLog" Spacing="22" Margin="0,30" MaxWidth="900"/></ScrollViewer>
+        <StackPanel Grid.Row="1" Spacing="8" Margin="0,10,0,14" MaxWidth="900" HorizontalAlignment="Stretch">
+         <TextBlock x:Name="ContextHint" Classes="muted" FontSize="11" TextTrimming="CharacterEllipsis"/>
+         <ListBox x:Name="CommandSuggestions" IsVisible="False" MaxHeight="170" SelectionChanged="CommandSuggestion_Changed"/>
+         <Border x:Name="PromptDropZone" DragDrop.AllowDrop="True" DragDrop.DragOver="Prompt_DragOver" DragDrop.Drop="Prompt_Drop" Background="{DynamicResource RaisedBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="14" Padding="12">
+          <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="8"><TextBox x:Name="PromptBox" Watermark="Ask anything, type / for commands, or drop files…" TextChanged="PromptCommand_Changed" AcceptsReturn="True" TextWrapping="Wrap" MinHeight="48" MaxHeight="150" BorderThickness="0" Background="Transparent" KeyDown="PromptBox_KeyDown"/>
+           <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto,Auto,Auto" ColumnSpacing="6"><TextBlock x:Name="AttachmentStatus" Classes="muted" Text="Drop up to 5 text or code files · max 4 MB total" FontSize="10" VerticalAlignment="Center"/><Button x:Name="ClearAttachmentsButton" Grid.Column="1" Content="Clear files" IsVisible="False" Click="ClearAttachments_Click"/><Button x:Name="SearchToggleButton" Grid.Column="2" Content="⌕  Search off" Click="SearchToggle_Click" ToolTip.Tip="Search the web for this question"/><Button Grid.Column="3" Content="▧  Image" Click="GenerateImage_Click" ToolTip.Tip="Generate an image with the selected cloud provider"/><Button x:Name="StopButton" Grid.Column="4" Content="■  Stop" IsVisible="False" Click="Stop_Click"/></Grid>
+           <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8"><TextBlock Classes="muted" Text="Enter to send · Shift+Enter for a new line" FontSize="11" VerticalAlignment="Center"/><Button x:Name="SendButton" Grid.Column="1" Classes="primary" Content="Send  ↑" Click="Send_Click"/></Grid>
+          </Grid>
+         </Border>
+         <StackPanel x:Name="LoadingOverlay" IsVisible="False" Orientation="Horizontal" Spacing="8"><Path x:Name="BusyRing" Width="14" Height="14" Stretch="Fill" Data="M 12,2 A 10,10 0 1 1 2,12" Stroke="{DynamicResource AccentBrush}" StrokeThickness="2" RenderTransformOrigin="50%,50%"/><TextBlock x:Name="LoadingText" Classes="muted" FontSize="11"/></StackPanel>
+        </StackPanel>
+       </Grid>
+       </Grid>
+      </SplitView.Content>
+     </SplitView>
+    </Grid>
+    <Border Grid.Row="1" Grid.ColumnSpan="2" Background="{DynamicResource PanelBrush}" BorderBrush="{DynamicResource LineBrush}" BorderThickness="0,1,0,0" Padding="18,7"><TextBlock x:Name="StatusText" Text="Ready when you are." Classes="muted" FontSize="10" TextTrimming="CharacterEllipsis"/></Border>
+   </Grid>
+   </Grid>
+  </Border>
+ </Grid>
+</Window>

@@ -1,0 +1,175 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+  <Styles.Resources>
+    <CornerRadius x:Key="RadiusSm">10</CornerRadius>
+    <CornerRadius x:Key="RadiusMd">18</CornerRadius>
+    <Thickness x:Key="ButtonPadding">14,10</Thickness>
+    <Thickness x:Key="InputPadding">10,8</Thickness>
+    <Thickness x:Key="ListItemPadding">12,10</Thickness>
+    <x:Double x:Key="FontSizeLabel">12</x:Double>
+    <x:Double x:Key="FontSizeBody">14</x:Double>
+    <x:Double x:Key="DisabledOpacity">0.45</x:Double>
+  </Styles.Resources>
+
+  <!-- BUTTONS -->
+  <Style Selector="Button">
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusMd}" />
+    <Setter Property="Padding" Value="{DynamicResource ButtonPadding}" />
+    <Setter Property="Background" Value="{DynamicResource RaisedBrush}" />
+    <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
+    <Setter Property="HorizontalContentAlignment" Value="Center" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+    <Setter Property="Cursor" Value="Hand" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="Background" Duration="0:0:0.12" />
+        <BrushTransition Property="BorderBrush" Duration="0:0:0.12" />
+        <DoubleTransition Property="Opacity" Duration="0:0:0.12" />
+      </Transitions>
+    </Setter>
+  </Style>
+
+  <Style Selector="Button.primary">
+    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="Foreground" Value="#1C2413" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+
+  <Style Selector="Button.quiet">
+    <Setter Property="Background" Value="Transparent" />
+    <Setter Property="BorderThickness" Value="0" />
+  </Style>
+  <Style Selector="Button.quiet:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource RaisedBrush}" />
+  </Style>
+
+  <Style Selector="Button:pointerover /template/ ContentPresenter">
+    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+  </Style>
+  <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
+    <Setter Property="Opacity" Value="0.92" />
+  </Style>
+  <Style Selector="Button:pressed /template/ ContentPresenter">
+    <Setter Property="Opacity" Value="0.82" />
+  </Style>
+  <Style Selector="Button:disabled">
+    <Setter Property="Opacity" Value="{DynamicResource DisabledOpacity}" />
+    <Setter Property="Cursor" Value="Arrow" />
+  </Style>
+
+  <!-- TEXT -->
+  <Style Selector="TextBlock">
+    <Setter Property="Foreground" Value="{DynamicResource TextBrush}" />
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
+    <Setter Property="TextWrapping" Value="Wrap" />
+  </Style>
+  <Style Selector="TextBlock.muted">
+    <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+  </Style>
+  <Style Selector="TextBlock.label">
+    <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeLabel}" />
+    <Setter Property="FontWeight" Value="Medium" />
+    <Setter Property="LetterSpacing" Value="0" />
+  </Style>
+  <Style Selector="TextBlock.h1">
+    <Setter Property="FontSize" Value="20" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+  <Style Selector="TextBlock.h2">
+    <Setter Property="FontSize" Value="16" />
+    <Setter Property="FontWeight" Value="SemiBold" />
+  </Style>
+
+  <!-- INPUTS -->
+  <Style Selector="TextBox">
+    <Setter Property="Padding" Value="{DynamicResource InputPadding}" />
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
+    <Setter Property="MinHeight" Value="36" />
+  </Style>
+  <Style Selector="TextBox /template/ Border#PART_BorderElement">
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}" />
+    <Setter Property="Background" Value="{DynamicResource RaisedBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+  <Style Selector="TextBox:focus /template/ Border#PART_BorderElement">
+    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+  </Style>
+
+  <Style Selector="ComboBox">
+    <Setter Property="HorizontalAlignment" Value="Stretch" />
+    <Setter Property="MinHeight" Value="36" />
+    <Setter Property="FontSize" Value="{DynamicResource FontSizeBody}" />
+  </Style>
+  <Style Selector="ComboBox /template/ Border#Background">
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}" />
+  </Style>
+
+  <!-- LIST BOX -->
+  <Style Selector="ListBoxItem">
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}" />
+    <Setter Property="Padding" Value="{DynamicResource ListItemPadding}" />
+    <Setter Property="Transitions">
+      <Transitions>
+        <BrushTransition Property="Background" Duration="0:0:0.1" />
+      </Transitions>
+    </Setter>
+  </Style>
+  <Style Selector="ListBoxItem:pointerover /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource RaisedBrush}" />
+  </Style>
+
+  <Style Selector="ListBox.quickResults">
+    <Setter Property="Padding" Value="4" />
+    <Setter Property="BorderThickness" Value="0" />
+    <Setter Property="Background" Value="Transparent" />
+  </Style>
+  <Style Selector="ListBox.quickResults ListBoxItem">
+    <Setter Property="Margin" Value="0,3" />
+    <Setter Property="Padding" Value="12,9" />
+    <Setter Property="MinHeight" Value="60" />
+    <Setter Property="VerticalContentAlignment" Value="Center" />
+  </Style>
+  <Style Selector="ListBox.quickResults ListBoxItem:selected /template/ ContentPresenter">
+    <Setter Property="Background" Value="{DynamicResource RaisedBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+  </Style>
+  <Style Selector="ListBox.quickResults:focus ListBoxItem:selected /template/ ContentPresenter">
+    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+  </Style>
+
+  <!-- KEYCAP -->
+  <Style Selector="Border.keycap">
+    <Setter Property="Background" Value="{DynamicResource RaisedBrush}" />
+    <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}" />
+    <Setter Property="BorderThickness" Value="1" />
+    <Setter Property="CornerRadius" Value="{DynamicResource RadiusSm}" />
+    <Setter Property="Padding" Value="7,3" />
+    <Setter Property="VerticalAlignment" Value="Center" />
+  </Style>
+  <Style Selector="Border.keycap > TextBlock">
+    <Setter Property="FontSize" Value="11" />
+    <Setter Property="FontFamily" Value="{DynamicResource AppFont}" />
+    <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+  </Style>
+
+  <Style Selector="Border.homeCard">
+    <Setter Property="Padding" Value="22"/>
+    <Setter Property="CornerRadius" Value="20"/>
+    <Setter Property="Background" Value="{DynamicResource PanelBrush}"/>
+    <Setter Property="BorderBrush" Value="{DynamicResource LineBrush}"/>
+    <Setter Property="BorderThickness" Value="1"/>
+  </Style>
+  <Style Selector="ListBox.pillResults ListBoxItem">
+    <Setter Property="MinHeight" Value="42"/>
+    <Setter Property="Padding" Value="8,5"/>
+    <Setter Property="Margin" Value="0,2"/>
+  </Style>
+</Styles>

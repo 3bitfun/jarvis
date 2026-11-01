@@ -1,0 +1,41 @@
+# Build and release output
+bin/
+obj/
+artifacts/
+dist/
+TestResults/
+*.log
+*.tmp
+*.import
+*.lnk
+
+# Downloaded models belong on disk, not in source control
+models/*
+!models/.gitkeep
+*.gguf
+*.safetensors
+
+# Local credentials, chat data, and generated media
+.env
+.env.*
+!.env.example
+config.encrypted.json
+config.key
+memory.json
+workspace/
+knowledge/
+*.pfx
+*.p12
+*.pem
+*.key
+
+# Editor and operating-system files
+.vs/
+.vscode/
+.idea/
+*.user
+*.suo
+*.swp
+Thumbs.db
+Desktop.ini
+.DS_Store
