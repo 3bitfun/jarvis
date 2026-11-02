@@ -7,6 +7,7 @@ namespace JARVIS;
 
 public sealed class AssistantMark : Control
 {
+    public bool AnimationsEnabled { get; set; } = true;
     private readonly DispatcherTimer _pulse = new() { Interval = TimeSpan.FromMilliseconds(50) };
     public AssistantMark()
     {
@@ -21,7 +22,7 @@ public sealed class AssistantMark : Control
         var center = new Point(Bounds.Width / 2, Bounds.Height / 2);
         var radius = Math.Min(Bounds.Width, Bounds.Height) * .42;
         var accent = verity ? Brushes.Gold : (IBrush?)Application.Current?.Resources["AccentBrush"] ?? Brushes.Cyan;
-        var pulse = .92 + .06 * Math.Sin(DateTime.UtcNow.TimeOfDay.TotalSeconds * 2);
+        var pulse = AnimationsEnabled ? .92 + .06 * Math.Sin(DateTime.UtcNow.TimeOfDay.TotalSeconds * 2) : .96;
         context.DrawEllipse(null, new Pen(accent, 1), center, radius, radius);
         context.DrawEllipse(verity ? Brushes.Gold : null, new Pen(accent, 2), center, radius * .8 * pulse, radius * .8 * pulse);
         if (verity)

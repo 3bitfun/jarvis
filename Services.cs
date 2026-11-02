@@ -40,6 +40,14 @@ public sealed class AppConfig
     public bool SetupCompleted { get; set; }
     public bool SetupDismissed { get; set; }
     public bool VerityMode { get; set; }
+    public bool PetEnabled { get; set; }
+    public int PetSize { get; set; } = 96;
+    public double PetOpacity { get; set; } = 0.95;
+    public int? PetX { get; set; }
+    public int? PetY { get; set; }
+    public string PetPersonality { get; set; } = "Professional";
+    public bool PetAnimations { get; set; } = true;
+    public string PetImagePath { get; set; } = "";
     public List<string> DashboardWidgets { get; set; } = new() { "Core", "System", "Storage", "Network", "Clock", "Suggestions" };
     public Dictionary<string, bool> WideWidgets { get; set; } = new();
     public bool WeatherEnabled { get; set; }

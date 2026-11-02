@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 1.3.1 — 2026-11-02
+
+- Added an optional draggable desktop pet with quick-chat click, context menu, ready/working status and saved position.
+- Added pet size, opacity, animation, personality and custom PNG/JPEG image controls in Settings → Style.
+
 ## 1.3.0 — 2026-11-01
 
 - Replaced the separate welcome window with an embedded five-step guide, Back/Next/Skip/Finish, GGUF downloads and a Home continuation banner.

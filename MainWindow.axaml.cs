@@ -140,6 +140,7 @@ public partial class MainWindow : Window
             ModelComboBox.SelectedItem = _engine.LocalModels.Contains(_config.PreferredLocalModel) ? _config.PreferredLocalModel : _engine.LocalModels[0];
         _ = RefreshAppsAsync();
         InitializeShell(autoLoadModel);
+        InitializeDesktopPet(autoLoadModel);
         ApplyAppearance();
     }
     private void HotkeyError(string text) { SetMode(HudMode.EXPANDED_DECK); StatusText.Text = text; }
