@@ -10,6 +10,15 @@ public partial class MainWindow
     private const string CustomModelOption = "Custom model ID…";
     private bool _loadingModelChoice;
     private IReadOnlyList<string> _availableModels = Array.Empty<string>();
+    private IReadOnlyList<string> _availableImageModels = Array.Empty<string>();
+    private bool _imageModelsVerified;
+    private bool _updatingImageModels;
+    private static bool LikelyImageModel(string id) => new[] { "image", "imagen", "flux", "dall-e", "sdxl", "stable-diffusion", "recraft", "ideogram" }.Any(part => id.Contains(part, StringComparison.OrdinalIgnoreCase));
+    private bool ModelMatchesType(string id)
+    {
+        var type = CloudModelTypeFilter.SelectedItem as string ?? "All models";
+        return type == "All models" || (type == "Likely image models") == LikelyImageModel(id);
+    }
     private static readonly string[] SlashCommands =
     {
         "/model — choose a model, or /model slug",
@@ -19,19 +28,21 @@ public partial class MainWindow
         "/memory — toggle memory; on/off accepted",
         "/new — start a conversation", "/settings — engine settings",
         "/mcp — connected tools", "/skills — local skills",
-        "/image — open image generation", "/help — command reference"
+        "/image — toggle image mode, or /image prompt", "/help — command reference"
     };
 
     private void ResetProviderModelChoice()
     {
         _loadingModelChoice = true;
         _availableModels = Array.Empty<string>(); CloudModelFilter.Text = "";
+        _availableImageModels = Array.Empty<string>(); _imageModelsVerified = false;
         var model = CloudModelBox.Text ?? "";
         CloudModelChoice.ItemsSource = string.IsNullOrWhiteSpace(model) ? new[] { CustomModelOption } : new[] { model, CustomModelOption };
         CloudModelChoice.SelectedItem = CustomModelOption;
         CloudModelBox.IsVisible = true;
         ProviderModelsStatus.Text = "Fetch uses this provider's endpoint and key. Choose a listed model or enter a custom slug, then save engine settings.";
         _loadingModelChoice = false;
+        if (_ready) RefreshImageModelChoices();
     }
     private void CloudModel_Changed(object? sender, SelectionChangedEventArgs e)
     {
@@ -44,12 +55,39 @@ public partial class MainWindow
     {
         if (_loadingModelChoice || _availableModels.Count == 0) return;
         var query = CloudModelFilter.Text?.Trim() ?? "";
-        var choices = _availableModels.Where(id => id.Contains(query, StringComparison.OrdinalIgnoreCase)).ToArray();
+        var choices = _availableModels.Where(id => id.Contains(query, StringComparison.OrdinalIgnoreCase) && ModelMatchesType(id)).ToArray();
         _loadingModelChoice = true;
         CloudModelChoice.ItemsSource = choices.Concat(new[] { CustomModelOption }).ToArray();
         CloudModelChoice.SelectedItem = choices.Contains(CloudModelBox.Text ?? "") ? CloudModelBox.Text : CustomModelOption;
         CloudModelBox.IsVisible = Equals(CloudModelChoice.SelectedItem, CustomModelOption);
         _loadingModelChoice = false;
+    }
+    private void CloudModelTypeFilter_Changed(object? sender, SelectionChangedEventArgs e) { if (_ready) CloudModelFilter_Changed(sender, null!); }
+    private async void FetchImageModels_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_config.ActiveProvider == "Local") { ImageModelsStatus.Text = "Select a cloud chat provider to search its models, or install Local CPU below."; return; }
+        var provider = _config.ActiveProvider; var endpoint = EndpointBox.Text ?? ""; var key = ApiKeyBox.Text ?? "";
+        ImageModelsStatus.Text = "Fetching image models…";
+        try
+        {
+            var models = await ProviderModels.FetchImageModelsAsync(provider, endpoint, key);
+            if (provider != _config.ActiveProvider || endpoint != EndpointBox.Text || key != ApiKeyBox.Text) return;
+            _availableImageModels = models; _imageModelsVerified = provider == "OpenRouter"; RefreshImageModelChoices();
+        }
+        catch (Exception ex) { if (provider == _config.ActiveProvider) ImageModelsStatus.Text = "Could not fetch image models: " + ex.Message; }
+    }
+    private void ImageModelFilter_Changed(object? sender, TextChangedEventArgs e) { if (_ready) RefreshImageModelChoices(); }
+    private void ImageModelChoice_Changed(object? sender, SelectionChangedEventArgs e)
+    {
+        if (_updatingImageModels || ImageModelChoice.SelectedItem is not string id) return;
+        ImageChatModelInput.Text = id; _config.ImageChatModel = id; SavePreferences();
+    }
+    private void RefreshImageModelChoices()
+    {
+        var query = ImageModelFilter.Text?.Trim() ?? "";
+        var choices = _availableImageModels.Where(id => (_imageModelsVerified || LikelyImageModel(id)) && id.Contains(query, StringComparison.OrdinalIgnoreCase)).ToArray();
+        _updatingImageModels = true; ImageModelChoice.ItemsSource = choices; ImageModelChoice.SelectedItem = choices.Contains(ImageChatModelInput.Text ?? "") ? ImageChatModelInput.Text : null; _updatingImageModels = false;
+        ImageModelsStatus.Text = _imageModelsVerified ? $"{choices.Length} image models from the provider. You can also enter a custom ID." : $"{choices.Length} likely image models found by name. Capability varies; you can enter any model ID.";
     }
     private async Task FetchProviderModelsAsync()
     {
@@ -64,10 +102,12 @@ public partial class MainWindow
             var selected = CloudModelBox.Text;
             _loadingModelChoice = true;
             _availableModels = models; CloudModelFilter.Text = "";
-            CloudModelChoice.ItemsSource = models.Concat(new[] { CustomModelOption }).ToArray();
-            CloudModelChoice.SelectedItem = selected is not null && models.Contains(selected) ? selected : CustomModelOption;
+            var choices = models.Where(ModelMatchesType).ToArray();
+            CloudModelChoice.ItemsSource = choices.Concat(new[] { CustomModelOption }).ToArray();
+            CloudModelChoice.SelectedItem = selected is not null && choices.Contains(selected) ? selected : CustomModelOption;
             CloudModelBox.IsVisible = Equals(CloudModelChoice.SelectedItem, CustomModelOption);
             ProviderModelsStatus.Text = $"{models.Count} models found. Choose one, then save engine settings. Custom model ID is always available.";
+            RefreshImageModelChoices();
         }
         catch (Exception ex) { if (provider == _config.ActiveProvider) ProviderModelsStatus.Text = ex.Message; }
         finally { _loadingModelChoice = false; FetchModelsButton.IsEnabled = true; }

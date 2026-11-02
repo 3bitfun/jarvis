@@ -26,6 +26,13 @@ public partial class MiniLauncherWindow : Window
     private double _scale = 1;
     private Window? _petAnchor;
     public bool CompactLayout { get; set; }
+    public void SetGlass(bool enabled)
+    {
+        PillAcrylic.IsVisible = PillHighlight.IsVisible = enabled;
+        TransparencyLevelHint = enabled ? new[] { WindowTransparencyLevel.AcrylicBlur, WindowTransparencyLevel.Transparent } : new[] { WindowTransparencyLevel.Transparent };
+        var tint = Avalonia.Application.Current?.Resources.TryGetResource("GlassTintColor", null, out var value) == true && value is Avalonia.Media.Color color ? color : Avalonia.Media.Colors.Black;
+        PillShell.Background = enabled ? Avalonia.Media.Brushes.Transparent : new Avalonia.Media.SolidColorBrush(Avalonia.Media.Color.FromRgb(tint.R, tint.G, tint.B));
+    }
     private bool _movingInput, _replyReady;
     private readonly DispatcherTimer _statusTimer = new() { Interval = TimeSpan.FromSeconds(2) };
     private bool _busy, _closed, _ready;

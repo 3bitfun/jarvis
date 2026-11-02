@@ -10,7 +10,7 @@ public static class ThemeManager
         var colors = profile switch
         {
             "Minimalist" => ("#E4E4E7", "#18181B"),
-            "Terminal" => ("#8CF09C", "#090D09"),
+            "Terminal" => ("#C9A7EB", "#111113"),
             "ChatGPT Style" => ("#7ED0B1", "#212121"),
             "GitHub Style" => ("#58A6FF", "#0D1117"),
             "Neon" => ("#FC5EDB", "#100C22"),

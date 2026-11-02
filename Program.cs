@@ -26,6 +26,9 @@ internal static class Program
             GlassBackdrop.Configure(window, Console.WriteLine);
             window.Show(); Dispatcher.UIThread.RunJobs();
             Console.WriteLine("Actual compositor transparency: " + window.ActualTransparencyLevel);
+            window.TransparencyLevelHint = new[] { WindowTransparencyLevel.None }; window.Background = Avalonia.Media.Brushes.Black; Dispatcher.UIThread.RunJobs();
+            if (window.ActualTransparencyLevel == WindowTransparencyLevel.AcrylicBlur || window.ActualTransparencyLevel == WindowTransparencyLevel.Blur || window.ActualTransparencyLevel == WindowTransparencyLevel.Mica) throw new InvalidOperationException("Solid mode did not disable the window backdrop.");
+            Console.WriteLine("Solid window backdrop: " + window.ActualTransparencyLevel);
             window.Close(); return;
         }
         if (args.Length == 1 && args[0] == "--check-startup")
@@ -41,6 +44,8 @@ internal static class Program
             var table = (StackPanel)markdown.Render("| Name | Value |\n|---|---|\n| A | B |");
             if (!table.Children.OfType<Grid>().Any()) throw new InvalidOperationException("Markdown tables are not rendered as grids.");
             var mini = new MiniLauncherWindow();
+            mini.SetGlass(false);
+            if (mini.FindControl<ExperimentalAcrylicBorder>("PillAcrylic")!.IsVisible || mini.TransparencyLevelHint[0] == WindowTransparencyLevel.AcrylicBlur) throw new InvalidOperationException("Quick chat left blur enabled in solid mode.");
             mini.FindControl<TextBox>("IdleInput")!.Text = "hello";
             Dispatcher.UIThread.RunJobs();
             if (mini.FindControl<TextBox>("QueryBox")!.Text != "hello" || mini.Width <= 344)

@@ -14,8 +14,21 @@ public sealed class LLamaEngine : IDisposable
     private string _executorSystem = "";
     private string Mode => Config.ChatModes.GetValueOrDefault(ActiveChatId, Config.ResponseMode);
     private string SystemPrompt => IdentityPrompt + (Config.VerityMode ? " Roleplay as Verity, a cheerful, mildly mysterious yellow smiley desktop companion. Be playful and helpful. Never imply you are watching the user or have access to anything beyond the supplied tools. Keep all tool permission rules." : Config.PetPersonality switch { "Playful" => " Use a playful, friendly tone.", "Calm" => " Use a calm, reassuring tone.", _ => " Use a professional, friendly tone." }) + (Mode == "Instant" ? " Answer immediately and briefly. Do not include reasoning or analysis in the response." : Mode == "Quick" ? " Give a concise direct answer." : " Check your work carefully before answering.") + (Mode == "Think more" ? " " + DeliberateInstructions : "") + (Config.FileTools ? " " + WorkspaceFiles.Protocol : "") + (CanGenerateImages ? " " + ImageToolParser.Protocol : "");
-    private bool CanGenerateImages => !string.IsNullOrWhiteSpace(Config.ImageProvider.BaseUrl) || Config.ActiveProvider != "Local";
-    private ProviderProfile ImageProfile => !string.IsNullOrWhiteSpace(Config.ImageProvider.BaseUrl) ? Config.ImageProvider : Config.ActiveProvider != "Local" ? Config.Providers[Config.ActiveProvider] : throw new InvalidOperationException("Configure an image endpoint, key, and image model in Settings → Engine → Image generation.");
+    private bool UseLocalImages => Config.ImageBackend == "Local CPU";
+    private bool UseSeparateImages => Config.ImageBackend == "Separate service" || (Config.ImageBackend == "Automatic" && !string.IsNullOrWhiteSpace(Config.ImageProvider.BaseUrl));
+    private bool CanGenerateImages => UseLocalImages ? LocalImageService.IsInstalled : UseSeparateImages ? !string.IsNullOrWhiteSpace(Config.ImageProvider.BaseUrl) : Config.ActiveProvider != "Local";
+    private string ImageProviderType => !UseLocalImages && !UseSeparateImages ? Config.ActiveProvider : "";
+    private ProviderProfile ImageProfile
+    {
+        get
+        {
+            if (UseLocalImages) return new ProviderProfile();
+            if (UseSeparateImages) return Config.ImageProvider;
+            if (Config.ActiveProvider == "Local") throw new InvalidOperationException("Choose Local CPU or configure an image service in Settings → Engine → Image generation.");
+            var chat = Config.Providers[Config.ActiveProvider];
+            return new ProviderProfile { BaseUrl = chat.BaseUrl, ApiKey = chat.ApiKey, Model = string.IsNullOrWhiteSpace(Config.ImageChatModel) ? chat.Model : Config.ImageChatModel };
+        }
+    }
     private readonly SemaphoreSlim _modelGate = new(1, 1);
     private readonly ConversationMemory _memory;
     public KnowledgeLibrary Knowledge { get; }
@@ -194,7 +207,7 @@ public sealed class LLamaEngine : IDisposable
             LastGeneratedImages = Array.Empty<string>();
             if (CanGenerateImages)
             {
-                var imageResult = await ImageToolParser.ProcessAsync(answer, ImageProfile, Config.Workspace, cancellationToken);
+                var imageResult = await ImageToolParser.ProcessAsync(answer, ImageProfile, Config.Workspace, cancellationToken, ImageProviderType, UseLocalImages ? LocalImageService.GenerateAsync : null);
                 answer = imageResult.Reply;
                 LastGeneratedImages = imageResult.Paths;
             }
@@ -249,7 +262,7 @@ public sealed class LLamaEngine : IDisposable
         {
             ObjectDisposedException.ThrowIf(_disposed, this);
             var encoded = System.Text.Json.JsonSerializer.Serialize(new { tool = "generate_image", prompt });
-            var result = await ImageToolParser.ProcessAsync("```jarvis-image\n" + encoded + "\n```", ImageProfile, Config.Workspace, cancellationToken);
+            var result = await ImageToolParser.ProcessAsync("```jarvis-image\n" + encoded + "\n```", ImageProfile, Config.Workspace, cancellationToken, ImageProviderType, UseLocalImages ? LocalImageService.GenerateAsync : null);
             if (result.Paths.Count == 0) throw new InvalidOperationException(result.Reply);
             LastGeneratedImages = result.Paths;
             _memory.Add("Generate image: " + prompt, result.Reply, result.Paths, Config.MemoryEnabled);

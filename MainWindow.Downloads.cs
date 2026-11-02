@@ -11,6 +11,7 @@ public partial class MainWindow
     private readonly AppUpdateService _updater = new();
     private CancellationTokenSource? _modelDownloadCancellation;
     private CancellationTokenSource? _updateCancellation;
+    private CancellationTokenSource? _imageModelInstallCancellation;
     private AvailableUpdate? _availableUpdate;
     private string? _verifiedInstaller;
     private TextBlock? _releaseNotes;
@@ -35,6 +36,15 @@ public partial class MainWindow
         };
         updatePanel.Children.Add(_runUpdate);
         InstallUpdateButton.Content = "Download update";
+        ImageBackendChoice.ItemsSource = new[] { "Automatic", "Chat provider", "Separate service", "Local CPU" };
+        ImageBackendChoice.SelectedItem = _config.ImageBackend;
+        ImageBackendChoice.SelectionChanged += (_, _) => { if (ImageBackendChoice.SelectedItem is string value) { _config.ImageBackend = value; SavePreferences(); } };
+        ImageChatModelInput.Text = _config.ImageChatModel;
+        ImageChatModelInput.TextChanged += (_, _) => { if (_ready) _config.ImageChatModel = ImageChatModelInput.Text?.Trim() ?? ""; };
+        ImageChatModelInput.LostFocus += (_, _) => { if (_ready) SavePreferences(); };
+        InstallImageModelButton.IsEnabled = LocalImageService.Supported;
+        LocalImageStatus.Text = !LocalImageService.Supported ? "Automatic installation is available on Windows x64. Connect a local image server on this platform." : LocalImageService.IsInstalled ? "Local image model installed." : "Local image model not installed.";
+        CloudModelTypeFilter.ItemsSource = new[] { "All models", "Likely chat models", "Likely image models" }; CloudModelTypeFilter.SelectedIndex = 0;
         CuratedModelChoice.ItemsSource = ModelDownloadService.Curated;
         CuratedModelChoice.SelectionChanged += (_, _) =>
         {
@@ -87,6 +97,24 @@ public partial class MainWindow
     }
 
     private void CancelGguf_Click(object? sender, RoutedEventArgs e) => _modelDownloadCancellation?.Cancel();
+
+    private async void InstallImageModel_Click(object? sender, RoutedEventArgs e)
+    {
+        if (_imageModelInstallCancellation is not null) return;
+        using var cancellation = new CancellationTokenSource(); _imageModelInstallCancellation = cancellation;
+        InstallImageModelButton.IsEnabled = false; CancelImageModelButton.IsVisible = true;
+        LocalImageStatus.Text = "Preparing verified local image downloads…";
+        try
+        {
+            var progress = new Progress<string>(value => { if (!_closing && !cancellation.IsCancellationRequested) LocalImageStatus.Text = value; });
+            await LocalImageService.InstallAsync(progress, cancellation.Token);
+            if (!_closing) { ImageBackendChoice.SelectedItem = "Local CPU"; LocalImageStatus.Text = "Installed. Local CPU is selected for image generation."; }
+        }
+        catch (OperationCanceledException) { if (!_closing) LocalImageStatus.Text = "Download cancelled; partial model removed."; }
+        catch (Exception ex) { if (!_closing) LocalImageStatus.Text = "Local image setup failed: " + ex.Message; }
+        finally { _imageModelInstallCancellation = null; if (!_closing) { InstallImageModelButton.IsEnabled = LocalImageService.Supported; CancelImageModelButton.IsVisible = false; } }
+    }
+    private void CancelImageModel_Click(object? sender, RoutedEventArgs e) => _imageModelInstallCancellation?.Cancel();
 
     private async void CheckUpdate_Click(object? sender, RoutedEventArgs e)
     {

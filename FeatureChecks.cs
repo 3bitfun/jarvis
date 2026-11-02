@@ -51,6 +51,7 @@ internal static class FeatureChecks
         await CheckStreamingAsync(root);
         await CheckPrivateCompactionAsync(root);
         await CheckProviderEndpointsAsync();
+        await ImageChecks.RunAsync(root);
         Console.WriteLine("Passed: encrypted settings, workspace write/replace/traversal rejection, and five provider adapter payload/response checks against a local mock.");
     }
 

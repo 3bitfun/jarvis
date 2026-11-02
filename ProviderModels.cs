@@ -6,6 +6,21 @@ namespace JARVIS;
 public static class ProviderModels
 {
     private static readonly HttpClient Client = new(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = TimeSpan.FromSeconds(30) };
+    public static async Task<IReadOnlyList<string>> FetchImageModelsAsync(string provider, string baseUrl, string key, CancellationToken token = default)
+    {
+        if (provider != "OpenRouter") return await FetchAsync(provider, baseUrl, key, token);
+        if (!Uri.TryCreate(baseUrl.Trim(), UriKind.Absolute, out var uri) || (uri.Scheme != "https" && !(uri.Scheme == "http" && uri.IsLoopback)) || !string.IsNullOrEmpty(uri.UserInfo)) throw new InvalidOperationException("Use an HTTPS base URL, or HTTP on localhost.");
+        var builder = new UriBuilder(uri); var path = builder.Path.TrimEnd('/');
+        if (path.EndsWith("/chat/completions", StringComparison.OrdinalIgnoreCase)) path = path[..^"/chat/completions".Length];
+        builder.Path = path + "/images/models";
+        using var request = new HttpRequestMessage(HttpMethod.Get, builder.Uri);
+        if (!string.IsNullOrWhiteSpace(key)) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", key);
+        using var response = await Client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
+        if (!response.IsSuccessStatusCode) throw new InvalidOperationException($"Image model list returned HTTP {(int)response.StatusCode}.");
+        using var doc = JsonDocument.Parse(await HttpPayload.ReadTextAsync(response, 4_000_000, token));
+        if (!doc.RootElement.TryGetProperty("data", out var items) || items.ValueKind != JsonValueKind.Array) throw new InvalidDataException("Provider returned an invalid image model list.");
+        return items.EnumerateArray().Where(i => i.ValueKind == JsonValueKind.Object && i.TryGetProperty("id", out var id) && id.ValueKind == JsonValueKind.String).Select(i => i.GetProperty("id").GetString()!).Distinct(StringComparer.Ordinal).OrderBy(id => id, StringComparer.OrdinalIgnoreCase).ToArray();
+    }
     public static async Task<IReadOnlyList<string>> FetchAsync(string provider, string baseUrl, string key, CancellationToken token = default)
     {
         var root = baseUrl.Trim().TrimEnd('/');

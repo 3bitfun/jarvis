@@ -69,6 +69,9 @@ public partial class MainWindow
         var glass = new CheckBox { Content = "Desktop glass / blur", IsChecked = _config.GlassEnabled };
         glass.IsCheckedChanged += (_, _) => { _config.GlassEnabled = glass.IsChecked == true; ApplyAppearance(); SavePreferences(); };
         style.Children.Insert(6, glass);
+        var square = new CheckBox { Content = "Square corners in full screen", IsChecked = _config.SquareFullscreen };
+        square.IsCheckedChanged += (_, _) => { _config.SquareFullscreen = square.IsChecked == true; ApplyWindowCorners(); SavePreferences(); };
+        style.Children.Insert(7, square);
         var colors = new WrapPanel();
         foreach (var (label, color) in new[] { ("Cyan", "#43DCEE"), ("Blue", "#75BFFF"), ("Violet", "#C8A3FF"), ("Amber", "#F3BC66"), ("Rose", "#EF8EA8"), ("Lime", "#D5E9A4") })
         {
@@ -146,13 +149,27 @@ public partial class MainWindow
         window.Show(this); input.Focus();
     }
 
+    private bool SolidAppearance => !_config.GlassEnabled || _config.Theme is "Minimalist" or "Terminal" or "GitHub Style" or "ChatGPT Style";
     private void ApplyAppearance()
     {
         if (_config.VerityMode) ThemeManager.Apply("Custom", "#FFD447", "#201C10");
-        var solid = !_config.GlassEnabled || _config.Theme is "Minimalist" or "Terminal" or "GitHub Style" or "ChatGPT Style";
+        var solid = SolidAppearance;
+        if (solid) GlassStatus.Text = "Solid surface · blur and Mica disabled.";
+        _mini?.SetGlass(_config.GlassEnabled);
+        if (_petBubble is not null && _config.PetBubbleStyle == "Frosted glass")
+        {
+            _petBubble.TransparencyLevelHint = _config.GlassEnabled ? new[] { WindowTransparencyLevel.AcrylicBlur, WindowTransparencyLevel.Transparent } : new[] { WindowTransparencyLevel.Transparent };
+            if (_petBubble.Content is StackPanel bubble)
+            {
+                var fill = Brush.Parse(_config.GlassEnabled ? "#A622262C" : "#FF17191D");
+                foreach (var card in bubble.Children.OfType<Border>()) card.Background = fill;
+                foreach (var tail in bubble.Children.OfType<Avalonia.Controls.Shapes.Polygon>()) tail.Fill = fill;
+            }
+        }
         var tint = (Color)Application.Current!.Resources["GlassTintColor"]!;
         var surface = new SolidColorBrush(tint);
         Background = solid ? surface : Brushes.Transparent;
+        DeckAcrylic.IsVisible = DeckGlassHighlight.IsVisible = !solid;
         TransparencyLevelHint = solid ? new[] { WindowTransparencyLevel.None } : new[] { WindowTransparencyLevel.AcrylicBlur, WindowTransparencyLevel.Transparent };
         var r = Application.Current.Resources;
         if (solid)
@@ -171,6 +188,13 @@ public partial class MainWindow
         if (solid) r["PanelBrush"] = new SolidColorBrush(Color.FromArgb(70, 0, 0, 0));
         if (_config.HighTextContrast) { r["TextBrush"] = Brushes.White; r["MutedBrush"] = new SolidColorBrush(Color.Parse("#E0E5E7")); r["SecondaryBrush"] = r["MutedBrush"]; }
         ApplyDeckLayout();
+        ApplyWindowCorners();
+    }
+
+    private void ApplyWindowCorners()
+    {
+        var radius = WindowState == WindowState.FullScreen && _config.SquareFullscreen ? 0 : _config.Layout == "Command Center" ? 8 : _config.Layout == "Original" ? 24 : 14;
+        ExpandedView.CornerRadius = DeckAcrylic.CornerRadius = DeckGlassHighlight.CornerRadius = new CornerRadius(radius);
     }
 
     private void ApplyDeckLayout()
@@ -178,7 +202,7 @@ public partial class MainWindow
         var layout = _config.Layout;
         HomePage.ApplyLayout(layout);
         DeckSidebar.IsVisible = !_config.HideSidebar;
-        if (layout == "Original") { ChatComposer.MaxWidth = 900; ChatArea.Margin = new Thickness(26, 0); PromptDropZone.CornerRadius = new CornerRadius(14); DeckHeader.Padding = new Thickness(24, 10); ExpandedView.CornerRadius = new CornerRadius(24); DeckLayout.ColumnDefinitions[0].Width = new GridLength(_config.HideSidebar ? 0 : Math.Clamp(_config.SidebarWidth, 180, 400)); ChatLog.MaxWidth = ChatComposer.MaxWidth = Math.Clamp(_config.ChatWidth, 500, 1400); ChatLog.Spacing = Math.Clamp(_config.MessageSpacing, 0, 60); return; }
+        if (layout == "Original") { ChatComposer.MaxWidth = 900; ChatArea.Margin = new Thickness(26, 0); PromptDropZone.CornerRadius = new CornerRadius(14); DeckHeader.Padding = new Thickness(24, 10); ExpandedView.CornerRadius = new CornerRadius(24); DeckLayout.ColumnDefinitions[0].Width = new GridLength(_config.HideSidebar ? 0 : Math.Clamp(_config.SidebarWidth, 180, 400)); ChatLog.MaxWidth = ChatComposer.MaxWidth = Math.Clamp(_config.ChatWidth, 500, 1400); ChatLog.Spacing = Math.Clamp(_config.MessageSpacing, 0, 60); ApplyTerminalLayout(); return; }
         DeckLayout.ColumnDefinitions[0].Width = new GridLength(layout switch { "Modern" => 280, "Focus" => 210, "Command Center" => 256, _ => 240 });
         ChatLog.MaxWidth = layout switch { "Modern" => 800, "Focus" => 680, "Command Center" => 1040, _ => 900 };
         ChatComposer.MaxWidth = ChatLog.MaxWidth;
@@ -190,6 +214,17 @@ public partial class MainWindow
         DeckLayout.ColumnDefinitions[0].Width = new GridLength(_config.HideSidebar ? 0 : Math.Clamp(_config.SidebarWidth, 180, 400));
         ChatLog.MaxWidth = ChatComposer.MaxWidth = Math.Clamp(_config.ChatWidth, 500, 1400);
         ChatLog.Spacing = Math.Clamp(_config.MessageSpacing, 0, 60);
+        ApplyTerminalLayout();
+    }
+
+    private void ApplyTerminalLayout()
+    {
+        var terminal = _config.Theme == "Terminal";
+        Grid.SetColumn(DeckSidebar, terminal ? 1 : 0); Grid.SetColumn(DeckContent, terminal ? 0 : 1);
+        DeckLayout.ColumnDefinitions[0].Width = terminal ? new GridLength(1, GridUnitType.Star) : new GridLength(_config.HideSidebar ? 0 : Math.Clamp(_config.SidebarWidth, 180, 400));
+        DeckLayout.ColumnDefinitions[1].Width = terminal ? new GridLength(_config.HideSidebar ? 0 : Math.Clamp(_config.SidebarWidth, 180, 400)) : new GridLength(1, GridUnitType.Star);
+        DeckSidebar.BorderThickness = terminal ? new Thickness(1, 0, 0, 0) : new Thickness(0, 0, 1, 0);
+        if (terminal) { ChatArea.Margin = new Thickness(18, 0); ChatLog.Spacing = 12; PromptDropZone.CornerRadius = new CornerRadius(2); }
     }
 
     internal void CheckLayoutSizing()
@@ -202,6 +237,13 @@ public partial class MainWindow
             HomePage.Measure(size); HomePage.Arrange(new Rect(size));
             if (!double.IsFinite(HomePage.Bounds.Width) || HomePage.Bounds.Width <= 0) throw new InvalidOperationException("Home layout failed for " + layout);
         }
+        _config.Theme = "Obsidian Glass"; _config.GlassEnabled = false; ApplyAppearance();
+        if (DeckAcrylic.IsVisible || DeckGlassHighlight.IsVisible || TransparencyLevelHint[0] != WindowTransparencyLevel.None) throw new InvalidOperationException("Solid mode left an acrylic layer enabled.");
+        _config.Theme = "Terminal"; ApplyAppearance();
+        if (Grid.GetColumn(DeckSidebar) != 1 || Grid.GetColumn(DeckContent) != 0) throw new InvalidOperationException("Terminal layout did not move the sidebar.");
+        _config.SquareFullscreen = true; WindowState = WindowState.FullScreen; ApplyWindowCorners();
+        if (ExpandedView.CornerRadius.TopLeft != 0 || DeckAcrylic.CornerRadius.TopLeft != 0) throw new InvalidOperationException("Full screen corners are not square.");
+        WindowState = WindowState.Normal;
     }
 
 }

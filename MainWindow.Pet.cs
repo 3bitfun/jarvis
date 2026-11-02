@@ -36,7 +36,7 @@ public partial class MainWindow
         _petBubbleMarkdown?.Dispose();
         var styleName = _config.PetBubbleStyle;
         var light = styleName == "White";
-        var glass = styleName == "Frosted glass";
+        var glass = styleName == "Frosted glass" && _config.GlassEnabled;
         var foreground = light ? Brushes.Black : Brushes.White;
         var fill = light ? Brush.Parse("#FFF9F9F7") : glass ? Brush.Parse("#A622262C") : Brush.Parse("#FF17191D");
         var markdown = new MarkdownChat(_config.PetBubbleFontSize, foreground); _petBubbleMarkdown = markdown;

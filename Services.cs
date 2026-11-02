@@ -44,6 +44,7 @@ public sealed class AppConfig
     public bool DeliberateMode { get; set; } = true;
     public int ResponseTokens { get; set; } = 1024;
     public bool GlassEnabled { get; set; } = true;
+    public bool SquareFullscreen { get; set; } = true;
     public bool SetupCompleted { get; set; }
     public bool SetupDismissed { get; set; }
     public bool VerityMode { get; set; }
@@ -79,6 +80,8 @@ public sealed class AppConfig
     public Dictionary<string, string> ChatModes { get; set; } = new();
     public double Temperature { get; set; } = 0.6;
     public ProviderProfile ImageProvider { get; set; } = new();
+    public string ImageBackend { get; set; } = "Automatic";
+    public string ImageChatModel { get; set; } = "";
     public Dictionary<string, string> Drafts { get; set; } = new();
     public string FontFamily { get; set; } = FontCatalog.Inter;
     public int FontPickerVersion { get; set; }
@@ -117,6 +120,8 @@ public sealed class AppConfig
         try { GlobalHotkey.Parse(QuickShortcut); GlobalHotkey.Parse(DeckShortcut); } catch { QuickShortcut = "Alt+Space"; DeckShortcut = "Alt+J"; }
         DisabledSkills ??= new(); Drafts ??= new(); McpServers ??= new();
         ImageProvider ??= new(); ImageProvider.BaseUrl ??= ""; ImageProvider.ApiKey ??= ""; ImageProvider.Model ??= "";
+        if (ImageBackend is not ("Automatic" or "Chat provider" or "Separate service" or "Local CPU")) ImageBackend = "Automatic";
+        ImageChatModel ??= "";
         FavoriteAppPaths ??= new(); RecentAppPaths ??= new(); ShortcutAppPaths ??= new(); WorkRoutineAppPaths ??= new();
         UserProfile ??= ""; PreferredLocalModel ??= "";
         if (string.IsNullOrWhiteSpace(FontFamily)) FontFamily = FontCatalog.Inter;

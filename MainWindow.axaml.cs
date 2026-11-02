@@ -36,9 +36,11 @@ public partial class MainWindow : Window
     private bool _refreshingMcp;
     private CancellationTokenSource? _generation;
     private string? _retryPrompt;
+    private bool _imageMode;
     private string? _editingProvider;
     private readonly Dictionary<string, string> _drafts = new();
     private readonly List<DroppedAttachment> _attachments = new();
+    private readonly System.Collections.ObjectModel.ObservableCollection<string> _filteredModels = new();
     private HudMode _mode = HudMode.MINIMIZED_ORB;
     private PixelPoint _orbPosition;
     private DateTime _lastQuick = DateTime.MinValue;
@@ -68,9 +70,10 @@ public partial class MainWindow : Window
         if (_config.FontPickerVersion < 1) { _config.FontFamily = FontCatalog.Inter; _config.FontPickerVersion = 1; try { _store.Save(_config); } catch (Exception) { } }
         ThemeManager.ApplyFont(_config.FontFamily);
         InitializeComponent();
+        ModelComboBox.ItemsSource = _filteredModels;
         InitializeDownloads();
         InitializeReleaseFeatures(autoLoadModel);
-        GlassBackdrop.Configure(this, text => GlassStatus.Text = text);
+        GlassBackdrop.Configure(this, text => GlassStatus.Text = SolidAppearance ? "Solid surface · blur and Mica disabled." : text);
         HomePage.NewChatRequested += NewChat_Click;
         HomePage.QuickBarRequested += (_, _) => ToggleQuickBar();
         HomePage.RoutineRequested += async (_, _) => await StartWorkRoutineAsync();
@@ -135,8 +138,8 @@ public partial class MainWindow : Window
             { SetMode(HudMode.EXPANDED_DECK); NavigateHome(); StatusText.Text = "Welcome. Choose a local or cloud engine to get started."; }
             else Dispatcher.UIThread.Post(() => { if (IsVisible && _mode == HudMode.MINIMIZED_ORB) ToggleQuickBar(); });
         };
-        PropertyChanged += (_, e) => { if (e.Property == WindowStateProperty && WindowState == WindowState.Minimized) { Hide(); WindowState = WindowState.Normal; } };
-        Closed += async (_, _) => { _generation?.Cancel(); _modelDownloadCancellation?.Cancel(); _updateCancellation?.Cancel(); _mini?.Close(); _spinner.Stop(); _tip.Stop(); _focusTimer.Stop(); _hotkeys?.Dispose(); _markdown?.Dispose(); await _engine.Mcp.DisposeAsync(); await Task.Run(_engine.Dispose); };
+        PropertyChanged += (_, e) => { if (e.Property == WindowStateProperty) { if (WindowState == WindowState.Minimized) { Hide(); WindowState = WindowState.Normal; } ApplyWindowCorners(); } };
+        Closed += async (_, _) => { _generation?.Cancel(); _modelDownloadCancellation?.Cancel(); _imageModelInstallCancellation?.Cancel(); _updateCancellation?.Cancel(); _mini?.Close(); _spinner.Stop(); _tip.Stop(); _focusTimer.Stop(); _hotkeys?.Dispose(); _markdown?.Dispose(); await _engine.Mcp.DisposeAsync(); await Task.Run(_engine.Dispose); };
         if (autoLoadModel && _config.ActiveProvider == "Local" && _engine.LocalModels.Count > 0)
             ModelComboBox.SelectedItem = _engine.LocalModels.Contains(_config.PreferredLocalModel) ? _config.PreferredLocalModel : _engine.LocalModels[0];
         _ = RefreshAppsAsync();
@@ -188,6 +191,7 @@ public partial class MainWindow : Window
         if (newLauncher) _mini.PropertyChanged += (_, e) => { if (e.Property == IsVisibleProperty && _mini is { IsVisible: false }) HideTemporaryPetLater(); };
         if (_mode == HudMode.MINIMIZED_ORB && IsVisible) Hide();
         _mini.CompactLayout = _config.CompactQuickBar;
+        _mini.SetGlass(_config.GlassEnabled);
         _mini.Toggle(_desktopPet is { IsVisible: true } ? _desktopPet : this, _desktopPet is { IsVisible: true });
     }
     private string? TryPetAction(string text)
@@ -334,8 +338,18 @@ public partial class MainWindow : Window
     private void RefreshModels()
     {
         _refreshing = true; _engine.RefreshModels();
-        ModelComboBox.SelectedItem = _engine.ActiveModelPath is null ? null : Path.GetFileName(_engine.ActiveModelPath);
+        UpdateLocalModelFilter();
         ModelsHint.Text = $"{_engine.LocalModels.Count} GGUF models • {_engine.ModelsDirectory}"; _refreshing = false;
+    }
+    private void LocalModelFilter_Changed(object? sender, TextChangedEventArgs e) { if (_ready) UpdateLocalModelFilter(); }
+    private void UpdateLocalModelFilter()
+    {
+        var wasRefreshing = _refreshing; _refreshing = true;
+        var query = LocalModelFilter.Text?.Trim() ?? "";
+        _filteredModels.Clear(); foreach (var name in _engine.LocalModels.Where(name => name.Contains(query, StringComparison.OrdinalIgnoreCase))) _filteredModels.Add(name);
+        var active = _engine.ActiveModelPath is null ? null : Path.GetFileName(_engine.ActiveModelPath);
+        ModelComboBox.SelectedItem = active is not null && _filteredModels.Contains(active) ? active : null;
+        _refreshing = wasRefreshing;
     }
     private async void ModelComboBox_SelectionChanged(object? s, SelectionChangedEventArgs e)
     {
@@ -352,6 +366,9 @@ public partial class MainWindow : Window
     private async Task SendAsync(string? orbPrompt = null, bool quickReply = false, Action<string>? progress = null)
     {
         var text = (orbPrompt ?? PromptBox.Text)?.Trim(); if (_busy || string.IsNullOrWhiteSpace(text)) return;
+        if (quickReply) _quickReplyFailure = null;
+        if (text.StartsWith("/image ", StringComparison.OrdinalIgnoreCase)) { await SendImageAsync(text[7..].Trim(), orbPrompt is null); return; }
+        if (orbPrompt is null && _imageMode && !text.StartsWith('/')) { await SendImageAsync(text, true); return; }
         if (text.StartsWith('/')) { if (orbPrompt is null) PromptBox.Text = ""; await HandleSlashCommandAsync(text); return; }
         var useAttachments = orbPrompt is null && _attachments.Count > 0;
         var prompt = useAttachments ? AppendAttachments(text) : text;
@@ -364,7 +381,6 @@ public partial class MainWindow : Window
             ContextHint.Text = _config.MemoryEnabled ? "Routine action saved in this chat" : "Memory paused · routine action stays in this session";
             return;
         }
-        if (quickReply) _quickReplyFailure = null;
         using var cancellation = new CancellationTokenSource(); _generation = cancellation;
         var stopwatch = Stopwatch.StartNew();
         _retryPrompt = null;
@@ -424,7 +440,9 @@ public partial class MainWindow : Window
     }
     private void UpdateAttachmentStatus()
     {
-        AttachmentStatus.Text = _attachments.Count == 0
+        AttachmentStatus.Text = _imageMode
+            ? (_attachments.Count == 0 ? "Image mode sends your description." : "Attached files are kept for chat; image mode sends only your description.")
+            : _attachments.Count == 0
             ? "Text and code attachments · sent to your selected provider"
             : string.Join(" · ", _attachments.Select(a => a.Name)) + "   (included with next message)";
         ClearAttachmentsButton.IsVisible = _attachments.Count > 0;
@@ -473,25 +491,41 @@ public partial class MainWindow : Window
         try { _store.Save(_config); StatusText.Text = _config.WebSearchEnabled ? "Web search enabled · results will be added to your next question" : "Web search disabled"; }
         catch (Exception ex) { StatusText.Text = "Could not save search setting: " + ex.Message; }
     }
-    private async void GenerateImage_Click(object? sender, RoutedEventArgs e)
+    private void GenerateImage_Click(object? sender, RoutedEventArgs e)
     {
         if (_busy) return;
-        var dialog = new Window { Title = "Generate an image", Width = 520, Height = 290, WindowStartupLocation = WindowStartupLocation.CenterOwner, CanResize = false };
-        var prompt = new TextBox { Watermark = "Describe the image you want", AcceptsReturn = true, MaxLength = 2000, TextWrapping = Avalonia.Media.TextWrapping.Wrap, MinHeight = 100, MaxHeight = 140 };
-        var generate = new Button { Content = "Generate", Classes = { "primary" }, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right };
-        var cancel = new Button { Content = "Cancel", HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right };
-        generate.Click += (_, _) => dialog.Close(prompt.Text?.Trim()); cancel.Click += (_, _) => dialog.Close(null);
-        dialog.Content = new StackPanel { Margin = new Thickness(20), Spacing = 14, Children = { new TextBlock { Text = "What should I create?", FontSize = 18 }, prompt, new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right, Spacing = 8, Children = { cancel, generate } } } };
-        var description = await dialog.ShowDialog<string?>(this);
+        SetImageMode(!_imageMode);
+        if (!IsVisible) OpenFullDeck(); NavigateConversation(); PromptBox.Focus();
+        StatusText.Text = _imageMode ? "Image mode · describe an image and press Enter" : "Chat mode";
+    }
+    private void SetImageMode(bool enabled)
+    {
+        _imageMode = enabled;
+        ImageSettingsButton.IsVisible = _imageMode;
+        GenerateImageButton.Content = AppIcon.Label("image", _imageMode ? "Image on" : "Image");
+        Avalonia.Automation.AutomationProperties.SetName(GenerateImageButton, _imageMode ? "Image mode on" : "Image mode off");
+        PromptBox.Watermark = _imageMode ? "Describe the image to generate…" : "Ask anything, type / for commands, or drop files…";
+        UpdateAttachmentStatus();
+    }
+    private void ImageSettings_Click(object? sender, RoutedEventArgs e)
+    {
+        OpenSettingsTab(0); ImageSettingsExpander.IsExpanded = true;
+        Dispatcher.UIThread.Post(() => ImageSettingsExpander.BringIntoView(), DispatcherPriority.Loaded);
+    }
+    private async Task SendImageAsync(string description, bool fromComposer)
+    {
         if (string.IsNullOrWhiteSpace(description) || _busy) return;
         using var cancellation = new CancellationTokenSource(); _generation = cancellation; SetBusy(true, "Generating image…");
+        NavigateConversation(); ShowConversation(); AddMessage("You", new SelectableTextBlock { Text = description, TextWrapping = TextWrapping.Wrap }, description, true);
+        if (fromComposer) PromptBox.Text = "";
         try
         {
             await Task.Run(() => _engine.GenerateImageAsync(description, cancellation.Token));
-            NavigateConversation(); ShowConversation(); RefreshChats(); StatusText.Text = "Image generated · saved in workspace/images";
+            NavigateConversation(); ShowConversation(); RefreshChats(); StatusText.Text = _attachments.Count > 0 ? "Image generated · attached files remain in the chat composer" : "Image generated · saved in workspace/images";
         }
-        catch (Exception ex) { ShowNotice(ex.Message); }
-        finally { _generation = null; SetBusy(false); }
+        catch (OperationCanceledException) { ShowConversation(); if (fromComposer) PromptBox.Text = description; else _quickReplyFailure = "Image generation stopped."; StatusText.Text = "Image generation stopped."; }
+        catch (Exception ex) { ShowConversation(); if (fromComposer) PromptBox.Text = description; else _quickReplyFailure = "Image generation failed: " + ex.Message; StatusText.Text = "Image generation failed: " + ex.Message; AddMessage("Image generation", new TextBlock { Text = ex.Message, TextWrapping = TextWrapping.Wrap }, "", false); }
+        finally { _generation = null; if (!_closing) SetBusy(false); }
     }
     private async void ImportSkill_Click(object? sender, RoutedEventArgs e)
     {
@@ -522,7 +556,8 @@ public partial class MainWindow : Window
     {
         var content = new StackPanel { Spacing = 12 };
         var header = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
-        header.Children.Add(new TextBlock { Text = author, FontSize = 11, FontWeight = FontWeight.SemiBold, Foreground = user ? Brushes.LightGray : this.FindResource("AccentBrush") as IBrush });
+        var terminal = _config.Theme == "Terminal";
+        header.Children.Add(new TextBlock { Text = terminal ? (user ? "> you" : "◇ " + author.ToLowerInvariant()) : author, FontSize = 11, FontWeight = FontWeight.SemiBold, Foreground = user ? Brushes.LightGray : this.FindResource("AccentBrush") as IBrush });
         if (!string.IsNullOrEmpty(raw))
         {
             var copy = new Button { Content = AppIcon.Label("copy", "Copy"), Padding = new Thickness(8, 3), FontSize = 11 };
@@ -543,8 +578,8 @@ public partial class MainWindow : Window
             actions.Children.Add(copy); Grid.SetColumn(actions, 1); header.Children.Add(actions);
         }
         content.Children.Add(header); content.Children.Add(body);
-        var modern = _config.Layout is "Modern" or "Focus";
-        ChatLog.Children.Add(new Border { Child = content, Padding = new Thickness(modern && !user ? 8 : 20), CornerRadius = new CornerRadius(_config.Layout == "Command Center" ? 6 : modern ? 20 : 14),
+        var modern = !terminal && _config.Layout is "Modern" or "Focus";
+        ChatLog.Children.Add(new Border { Child = content, Padding = new Thickness(terminal ? 10 : modern && !user ? 8 : 20), CornerRadius = new CornerRadius(terminal ? 2 : _config.Layout == "Command Center" ? 6 : modern ? 20 : 14),
             HorizontalAlignment = modern && user ? Avalonia.Layout.HorizontalAlignment.Right : Avalonia.Layout.HorizontalAlignment.Stretch,
             MaxWidth = modern && user ? 620 : double.PositiveInfinity,
             Background = modern && !user ? Brushes.Transparent : this.FindResource(user ? "RaisedBrush" : "PanelBrush") as IBrush,
@@ -558,8 +593,8 @@ public partial class MainWindow : Window
         if (_engine.Conversation.Count == 0)
         {
             var welcome = new StackPanel { Spacing = 18, Margin = new Thickness(10, 32, 10, 24) };
-            welcome.Children.Add(new TextBlock { Text = "A little clarity.\nA lot of possibility.", FontSize = 36, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap });
-            welcome.Children.Add(new TextBlock { Text = "Your ideas, your context, your assistant. What would you like to work on?", TextWrapping = TextWrapping.Wrap, Foreground = this.FindResource("MutedBrush") as IBrush });
+            welcome.Children.Add(new TextBlock { Text = "Start a conversation", FontSize = 28, FontWeight = FontWeight.SemiBold, TextWrapping = TextWrapping.Wrap });
+            welcome.Children.Add(new TextBlock { Text = "Ask a question, attach a file, or choose Image to create one.", TextWrapping = TextWrapping.Wrap, Foreground = this.FindResource("MutedBrush") as IBrush });
             foreach (var (title, prompt) in new[] { ("Plan something", "Help me turn an idea into a practical step-by-step plan."), ("Figure it out", "Help me think through a problem and choose a sensible next step."), ("Make it clearer", "Help me rewrite something so it is clear, concise, and easy to understand.") })
             {
                 var button = new Button { Content = AppIcon.Label("arrow-up-right", title), HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Stretch };
@@ -594,7 +629,7 @@ public partial class MainWindow : Window
         if (value && !string.IsNullOrWhiteSpace(message)) StatusText.Text = message;
         if (value) _spinner.Start(); else _spinner.Stop();
         ChatSearch.IsEnabled = !value;
-        AttachFilesButton.IsEnabled = GenerateImageButton.IsEnabled = SearchToggleButton.IsEnabled = ClearAttachmentsButton.IsEnabled = EditLastMessageButton.IsEnabled = DeleteChatButton.IsEnabled = HomeButton.IsEnabled = !value;
+        AttachFilesButton.IsEnabled = GenerateImageButton.IsEnabled = ImageSettingsButton.IsEnabled = SearchToggleButton.IsEnabled = ClearAttachmentsButton.IsEnabled = EditLastMessageButton.IsEnabled = DeleteChatButton.IsEnabled = HomeButton.IsEnabled = !value;
         PromptBox.IsEnabled = SendButton.IsEnabled = SettingsControls.IsEnabled = ChatsList.IsEnabled = NewChatButton.IsEnabled = ChatTitle.IsEnabled = !value;
     }
     private void Theme_Changed(object? s, SelectionChangedEventArgs e) { if (!_ready) return; _config.Theme = ThemeChoice.SelectedItem?.ToString() ?? "Obsidian Glass"; ApplyTheme(); }

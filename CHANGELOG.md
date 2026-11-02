@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 1.3.8 — 2026-11-02
+
+- Integrated image generation into chat, with image model search and chat provider credentials.
+- Added optional, verified Stable Diffusion 1.5 CPU setup for Windows x64.
+- Added local and provider model filters, solid backdrop controls, square fullscreen corners, and an OpenCode-inspired terminal layout.
+- Trimmed Home and added checks for image routing and solid window rendering.
+
 ## 1.3.7 — 2026-11-02
 
 - Fixed multi-turn chat roles for local and cloud models, and added cloud response streaming.

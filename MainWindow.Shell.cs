@@ -84,6 +84,10 @@ public partial class MainWindow
         var shifted = new KeyEventArgs { RoutedEvent = KeyDownEvent, Key = Key.Enter, KeyModifiers = KeyModifiers.Shift };
         PromptBox_KeyDown(PromptBox, shifted);
         if (shifted.Handled) throw new InvalidOperationException("Shift+Enter was blocked by the send handler.");
+        SetImageMode(true);
+        if (!_imageMode || !ImageSettingsButton.IsVisible || !PromptBox.Watermark!.Contains("image", StringComparison.OrdinalIgnoreCase)) throw new InvalidOperationException("Image composer mode did not activate.");
+        SetImageMode(false);
+        if (_imageMode || ImageSettingsButton.IsVisible) throw new InvalidOperationException("Image composer mode did not turn off.");
     }
     private void Shell_KeyDown(object? sender, KeyEventArgs e)
     {

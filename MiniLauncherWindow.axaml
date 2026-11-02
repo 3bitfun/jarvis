@@ -7,8 +7,8 @@
   <Border x:Name="PillShell" Margin="8" Background="Transparent" BorderBrush="{DynamicResource LineBrush}" BorderThickness="1" CornerRadius="28" ClipToBounds="True" BoxShadow="0 4 12 0 #40000000">
    <Border.Transitions><Transitions><CornerRadiusTransition Property="CornerRadius" Duration="0:0:0.16"/></Transitions></Border.Transitions>
    <Grid>
-    <ExperimentalAcrylicBorder CornerRadius="{Binding CornerRadius, ElementName=PillShell}" Material="{DynamicResource GlassMaterial}" IsHitTestVisible="False"/>
-    <Border Background="{DynamicResource GlassHighlightBrush}" CornerRadius="{Binding CornerRadius, ElementName=PillShell}" IsHitTestVisible="False"/>
+    <ExperimentalAcrylicBorder x:Name="PillAcrylic" CornerRadius="{Binding CornerRadius, ElementName=PillShell}" Material="{DynamicResource GlassMaterial}" IsHitTestVisible="False"/>
+    <Border x:Name="PillHighlight" Background="{DynamicResource GlassHighlightBrush}" CornerRadius="{Binding CornerRadius, ElementName=PillShell}" IsHitTestVisible="False"/>
    <Grid RowDefinitions="54,*">
     <Grid x:Name="PillHeader" ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="10" Margin="14,0,10,0" PointerPressed="PillHeader_PointerPressed">
      <Border Width="42" Height="42" CornerRadius="21" Background="{DynamicResource RaisedBrush}" VerticalAlignment="Center"><local:AssistantMark Width="40" Height="40" HorizontalAlignment="Center"/></Border>
