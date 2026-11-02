@@ -160,22 +160,43 @@ public partial class MainWindow : Window
     { _mini?.Hide(); if (!IsVisible) Show(); SetMode(HudMode.EXPANDED_DECK); Activate(); PromptBox.Focus(); }
     private void ToggleQuickBar()
     {
-        if (!_config.PetEnabled && _petEnabled is not null) _petEnabled.IsChecked = true;
+        if (_mini is not { IsVisible: true }) _petBubble?.Close();
+        if (!_config.PetEnabled && _mini is { IsVisible: true }) { _mini.Hide(); _petBubble?.Close(); _desktopPet?.Hide(); return; }
+        if (!_config.PetEnabled) UpdateDesktopPet(force: true);
+        var newLauncher = _mini is null;
         _mini ??= new MiniLauncherWindow(async text =>
         {
             if (_busy) return "J.A.R.V.I.S. is working on another request. Try again shortly.";
             if (IsWorkRoutineRequest(text))
             {
-                var routineReply = await StartWorkRoutineAsync(); _engine.RecordAction(text, routineReply); ShowConversation(); RefreshChats(); ShowPetReply(routineReply); return routineReply;
+                var routineReply = await StartWorkRoutineAsync(); _engine.RecordAction(text, routineReply); ShowConversation(); RefreshChats(); _mini?.Hide(); ShowPetReply(routineReply); return routineReply;
             }
+            var actionReply = TryPetAction(text);
+            if (actionReply is not null) { _engine.RecordAction(text, actionReply); ShowConversation(); RefreshChats(); _mini?.Hide(); ShowPetReply(actionReply); return actionReply; }
             var count = _engine.Conversation.Count;
-            await SendAsync(text, true);
+            _mini?.Hide(); ShowPetReply("Thinking…", true);
+            var stream = new System.Text.StringBuilder();
+            await SendAsync(text, true, part => Dispatcher.UIThread.Post(() => { if (_petStreamText is null) return; stream.Append(part); _petStreamText.Text = stream.ToString(); }));
             var reply = _engine.Conversation.Count > count ? _engine.Conversation.Last().Assistant : StatusText.Text ?? "Request did not complete.";
-            ShowPetReply(reply); return reply;
+            _mini?.Hide(); ShowPetReply(reply); return reply;
         }, OpenFullDeck, () => (_config.ActiveProvider == "Local" ? "Local AI" : _config.ActiveProvider) + " · " + (_busy ? "Working…" : (_config.ActiveProvider == "Local" && _engine.ActiveModelPath is null ? "Choose a model" : "Ready")), _launcher);
+        if (newLauncher) _mini.PropertyChanged += (_, e) => { if (e.Property == IsVisibleProperty && _mini is { IsVisible: false }) HideTemporaryPetLater(); };
         if (_mode == HudMode.MINIMIZED_ORB && IsVisible) Hide();
         _mini.CompactLayout = _config.CompactQuickBar;
         _mini.Toggle(_desktopPet is { IsVisible: true } ? _desktopPet : this, _desktopPet is { IsVisible: true });
+    }
+    private string? TryPetAction(string text)
+    {
+        var match = System.Text.RegularExpressions.Regex.Match(text.Trim(), @"^(?:open|launch|start)\s+(.+?)[.!]?$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (!match.Success) return null;
+        var target = match.Groups[1].Value.Trim();
+        var timer = System.Text.RegularExpressions.Regex.Match(target, @"^(?:a\s+)?(?:focus\s+)?timer\s+(?:for\s+)?(\d{1,3})\s+minutes?$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+        if (timer.Success && int.TryParse(timer.Groups[1].Value, out var minutes) && minutes is >= 1 and <= 180)
+        { _focusEndsAt = DateTime.Now.AddMinutes(minutes); _focusTimer.Start(); UpdateFocusTimer(); return $"Focus timer started for {minutes} minutes."; }
+        var app = _launcher.Apps.FirstOrDefault(a => a.Name.Equals(target, StringComparison.OrdinalIgnoreCase));
+        if (app is null) return null;
+        try { _launcher.Launch(app); return "Opened " + app.Name + "."; }
+        catch (Exception ex) { return "Couldn't open " + app.Name + ": " + ex.Message; }
     }
     private void Hide_Click(object? s, RoutedEventArgs e) => Hide();
     private void SetMode(HudMode next)
@@ -291,7 +312,7 @@ public partial class MainWindow : Window
     }
     private async void Send_Click(object? s, RoutedEventArgs e) => await SendAsync();
     private async void PromptBox_KeyDown(object? s, KeyEventArgs e) { if (e.Key != Key.Enter || e.KeyModifiers.HasFlag(KeyModifiers.Shift)) return; e.Handled = true; if (!_busy) await SendAsync(); }
-    private async Task SendAsync(string? orbPrompt = null, bool quickReply = false)
+    private async Task SendAsync(string? orbPrompt = null, bool quickReply = false, Action<string>? progress = null)
     {
         var text = (orbPrompt ?? PromptBox.Text)?.Trim(); if (_busy || string.IsNullOrWhiteSpace(text)) return;
         if (text.StartsWith('/')) { if (orbPrompt is null) PromptBox.Text = ""; await HandleSlashCommandAsync(text); return; }
@@ -313,7 +334,7 @@ public partial class MainWindow : Window
         SetBusy(true, "Preparing context and composing a reply…"); if (orbPrompt is null) PromptBox.Text = "";
         try
         {
-            var answer = await Task.Run(() => _engine.GenerateAsync(prompt, cancellation.Token, quickReply));
+            var answer = await Task.Run(() => _engine.GenerateAsync(prompt, cancellation.Token, quickReply, progress));
             _attachments.Clear(); UpdateAttachmentStatus();
             ShowConversation(); RefreshChats();
             var memoryLabel = _config.MemoryEnabled ? "Memory on" : "Memory paused · session only";

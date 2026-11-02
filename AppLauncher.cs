@@ -43,6 +43,27 @@ public sealed class AppLauncher
                 catch (IOException) { }
                 catch (UnauthorizedAccessException) { }
             }
+            if (OperatingSystem.IsWindows())
+            {
+                foreach (var hive in new[] { Microsoft.Win32.Registry.CurrentUser, Microsoft.Win32.Registry.LocalMachine })
+                {
+                    try
+                    {
+                        using var root = hive.OpenSubKey(@"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths");
+                        if (root is null) continue;
+                        foreach (var name in root.GetSubKeyNames())
+                        {
+                            using var entry = root.OpenSubKey(name);
+                            var path = Environment.ExpandEnvironmentVariables((entry?.GetValue(null) as string ?? "").Trim().Trim('"'));
+                            if (File.Exists(path) && System.IO.Path.GetExtension(path).Equals(".exe", StringComparison.OrdinalIgnoreCase)) apps.Add(new(System.IO.Path.GetFileNameWithoutExtension(name), path));
+                        }
+                    }
+                    catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or System.Security.SecurityException) { }
+                }
+                var system = Environment.GetFolderPath(Environment.SpecialFolder.System);
+                foreach (var (name, file) in new[] { ("Calculator", "calc.exe"), ("Notepad", "notepad.exe"), ("Paint", "mspaint.exe"), ("Task Manager", "Taskmgr.exe"), ("Command Prompt", "cmd.exe") })
+                { var path = System.IO.Path.Combine(system, file); if (File.Exists(path)) apps.Add(new(name, path)); }
+            }
             return apps.DistinctBy(a => a.Name, StringComparer.OrdinalIgnoreCase).OrderBy(a => a.Name).ToArray();
         });
     }

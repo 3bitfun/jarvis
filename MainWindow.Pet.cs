@@ -6,6 +6,9 @@ using Avalonia.Media;
 using Avalonia.Threading;
 using Avalonia.Platform.Storage;
 using Avalonia.Media.Imaging;
+using Avalonia.Styling;
+using Avalonia.Collections;
+using Polygon = Avalonia.Controls.Shapes.Polygon;
 
 namespace JARVIS;
 
@@ -22,40 +25,67 @@ public partial class MainWindow
     private DispatcherTimer? _bubbleTimer;
     private AssistantMark? _petPreview;
     private bool _bubbleHovered;
+    private TextBlock? _petStreamText;
 
-    private void ShowPetReply(string answer)
+    private void ShowPetReply(string answer, bool streaming = false)
     {
         if (_desktopPet is not { IsVisible: true } pet || string.IsNullOrWhiteSpace(answer)) return;
         _petBubble?.Close();
         _petBubbleMarkdown?.Dispose();
-        var markdown = new MarkdownChat(_config.PetBubbleFontSize); _petBubbleMarkdown = markdown;
+        var styleName = _config.PetBubbleStyle;
+        var light = styleName == "White";
+        var glass = styleName == "Frosted glass";
+        var foreground = light ? Brushes.Black : Brushes.White;
+        var fill = light ? Brush.Parse("#FFF9F9F7") : glass ? Brush.Parse("#A622262C") : Brush.Parse("#FF17191D");
+        var markdown = new MarkdownChat(_config.PetBubbleFontSize, foreground); _petBubbleMarkdown = markdown;
         var close = new Button { Content = "Close" };
         var deck = new Button { Content = "Open conversation" };
+        var reply = new Button { Content = "Reply" };
+        var stop = new Button { Content = "Stop", IsVisible = streaming };
+        stop.Click += (_, _) => _generation?.Cancel();
         var copy = new Button { Content = "Copy" };
         copy.Click += async (_, _) => { try { if (TopLevel.GetTopLevel(copy)?.Clipboard is { } clipboard) { await clipboard.SetTextAsync(answer); copy.Content = "Copied"; } } catch (Exception) { copy.Content = "Unavailable"; } };
-        var actions = new WrapPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Children = { deck, copy, close } };
-        var content = new StackPanel { Spacing = 10, Children = { new TextBlock { Text = "J.A.R.V.I.S.", FontWeight = FontWeight.SemiBold }, new ScrollViewer { MaxHeight = Math.Clamp(_config.PetBubbleHeight, 120, 600), Content = markdown.Render(answer) }, actions } };
-        var bubble = new Window { Title = "J.A.R.V.I.S. reply", Width = Math.Clamp(_config.PetBubbleWidth, 260, 700), SizeToContent = SizeToContent.Height, SystemDecorations = SystemDecorations.None, ShowInTaskbar = false, Topmost = true, CanResize = false, Background = Brushes.Transparent, TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent }, Content = new Border { Background = this.FindResource("PanelBrush") as IBrush ?? Brushes.Black, BorderBrush = this.FindResource("LineBrush") as IBrush ?? Brushes.Gray, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(18), Padding = new Thickness(16), Child = content } };
+        var actions = new WrapPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Children = { stop, reply, deck, copy, close } };
+        _petStreamText = streaming ? new TextBlock { Text = answer, Foreground = foreground, TextWrapping = TextWrapping.Wrap, FontSize = Math.Clamp(_config.PetBubbleFontSize, 10, 24) } : null;
+        var content = new StackPanel { Spacing = 10, Children = { new TextBlock { Text = _config.VerityMode ? "Verity" : "J.A.R.V.I.S.", Foreground = foreground, FontWeight = FontWeight.SemiBold }, new ScrollViewer { MaxHeight = Math.Clamp(_config.PetBubbleHeight, 120, 600), Content = (Control?)_petStreamText ?? markdown.Render(answer) }, actions } };
+        var card = new Border { Background = fill, BorderBrush = light ? Brushes.LightGray : Brushes.Gray, BorderThickness = new Thickness(1), CornerRadius = new CornerRadius(18), Padding = new Thickness(16), Child = content };
+        var tail = new Polygon { Fill = fill, Width = 24, Height = 12, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center, Points = new AvaloniaList<Point> { new(0, 0), new(24, 0), new(12, 12) } };
+        var layout = new StackPanel { Children = { card, tail } };
+        var bubble = new Window { Title = "J.A.R.V.I.S. reply", Width = Math.Clamp(_config.PetBubbleWidth, 260, 700), SizeToContent = SizeToContent.Height, SystemDecorations = SystemDecorations.None, ShowInTaskbar = false, ShowActivated = false, Topmost = true, CanResize = false, Background = Brushes.Transparent, RequestedThemeVariant = light ? ThemeVariant.Light : ThemeVariant.Dark, TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent }, Content = layout };
+        if (glass) GlassBackdrop.Configure(bubble);
         _petBubble = bubble;
         close.Click += (_, _) => bubble.Close();
+        reply.Click += (_, _) => { bubble.Close(); ToggleQuickBar(); };
         deck.Click += (_, _) => { bubble.Close(); OpenFullDeck(); NavigateConversation(); };
         bubble.Transitions = new Avalonia.Animation.Transitions { new Avalonia.Animation.DoubleTransition { Property = OpacityProperty, Duration = TimeSpan.FromMilliseconds(350) } };
         bubble.PointerEntered += (_, _) => { _bubbleHovered = true; bubble.Opacity = 1; };
         bubble.PointerExited += (_, _) => _bubbleHovered = false;
         _bubbleHovered = false; _bubbleTimer?.Stop();
-        if (_config.PetBubbleSeconds > 0)
+        if (!streaming && _config.PetBubbleSeconds > 0)
         {
             var remaining = Math.Clamp(_config.PetBubbleSeconds, 5, 300);
             _bubbleTimer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
             _bubbleTimer.Tick += (_, _) => { if (_bubbleHovered || bubble.IsKeyboardFocusWithin) return; remaining--; if (remaining <= 1 && !_config.PetReducedMotion) bubble.Opacity = .25; if (remaining <= 0) bubble.Close(); };
             _bubbleTimer.Start();
         }
-        bubble.Closed += (_, _) => { if (ReferenceEquals(_petBubble, bubble)) { _bubbleTimer?.Stop(); _petBubble = null; _petBubbleMarkdown?.Dispose(); _petBubbleMarkdown = null; } };
+        bubble.Closed += (_, _) => { if (ReferenceEquals(_petBubble, bubble)) { _bubbleTimer?.Stop(); _petBubble = null; _petStreamText = null; _petBubbleMarkdown?.Dispose(); _petBubbleMarkdown = null; HideTemporaryPetLater(); } };
         var screen = Screens.ScreenFromWindow(pet) ?? Screens.Primary;
         var area = screen?.WorkingArea ?? new PixelRect(0, 0, 1280, 720); var scale = screen?.Scaling ?? 1;
-        var width = (int)(bubble.Width * scale);
-        bubble.Position = new PixelPoint(Math.Clamp(pet.Position.X - width - 12, area.X, Math.Max(area.X, area.Right - width)), Math.Clamp(pet.Position.Y - (int)(200 * scale), area.Y, Math.Max(area.Y, area.Bottom - (int)(300 * scale))));
+        bubble.Width = Math.Min(bubble.Width, Math.Max(200, area.Width / scale - 16));
         bubble.Show();
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (!bubble.IsVisible || !pet.IsVisible) return;
+            var width = (int)(bubble.Bounds.Width * scale); var height = (int)(bubble.Bounds.Height * scale);
+            var x = Math.Clamp(pet.Position.X + (int)(pet.Bounds.Width * scale / 2) - width / 2, area.X, Math.Max(area.X, area.Right - width));
+            var above = pet.Position.Y - height - (int)(4 * scale);
+            if (above < area.Y)
+            {
+                layout.Children.Remove(tail); tail.Points = new AvaloniaList<Point> { new(0, 12), new(24, 12), new(12, 0) }; layout.Children.Insert(0, tail);
+            }
+            var y = above >= area.Y ? above : pet.Position.Y + (int)(pet.Bounds.Height * scale) + (int)(4 * scale);
+            bubble.Position = new PixelPoint(x, Math.Clamp(y, area.Y, Math.Max(area.Y, area.Bottom - height)));
+        }, DispatcherPriority.Loaded);
     }
 
     private void InitializeDesktopPet(bool interactive)
@@ -64,6 +94,16 @@ public partial class MainWindow
         style.Children.Add(new TextBlock { Text = "Pet Studio", FontSize = 18, FontWeight = FontWeight.SemiBold });
         _petPreview = new AssistantMark { Width = Math.Clamp(_config.PetSize, 64, 180), Height = Math.Clamp(_config.PetSize, 64, 180), AnimationsEnabled = _config.PetAnimations && !_config.PetReducedMotion, AnimationSpeed = _config.PetAnimationSpeed, AnimationIntensity = _config.PetAnimationIntensity, HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Left };
         style.Children.Add(_petPreview);
+        style.Children.Add(new TextBlock { Text = "Companion" });
+        var character = new ComboBox { ItemsSource = new[] { "J.A.R.V.I.S.", "Verity" }, SelectedItem = _config.VerityMode ? "Verity" : "J.A.R.V.I.S." };
+        character.SelectionChanged += (_, _) =>
+        {
+            _config.VerityMode = (character.SelectedItem as string) == "Verity";
+            if (Application.Current is not null) Application.Current.Resources["VerityMode"] = _config.VerityMode;
+            ThemeManager.Apply(_config.Theme, _config.Accent, _config.Tint); ApplyAppearance(); SavePreferences();
+            _petPreview?.InvalidateVisual(); _petMark?.InvalidateVisual();
+        };
+        style.Children.Add(character);
         _petEnabled = new CheckBox { Content = "Show desktop pet", IsChecked = _config.PetEnabled };
         _petEnabled.IsCheckedChanged += (_, _) => { _config.PetEnabled = _petEnabled.IsChecked == true; SavePreferences(); if (interactive) UpdateDesktopPet(); };
         style.Children.Add(_petEnabled);
@@ -101,6 +141,10 @@ public partial class MainWindow
         Number("Speech bubble maximum height", 120, 600, 20, _config.PetBubbleHeight, v => _config.PetBubbleHeight = (int)v);
         Number("Speech bubble text size", 10, 24, 1, _config.PetBubbleFontSize, v => _config.PetBubbleFontSize = (int)v);
         Number("Bubble duration in seconds (0 keeps it open)", 0, 300, 5, _config.PetBubbleSeconds, v => _config.PetBubbleSeconds = (int)v);
+        style.Children.Add(new TextBlock { Text = "Speech bubble background" });
+        var bubbleStyle = new ComboBox { ItemsSource = new[] { "Frosted glass", "White", "Black" }, SelectedItem = new[] { "Frosted glass", "White", "Black" }.Contains(_config.PetBubbleStyle) ? _config.PetBubbleStyle : "Frosted glass" };
+        bubbleStyle.SelectionChanged += (_, _) => { _config.PetBubbleStyle = bubbleStyle.SelectedItem as string ?? "Frosted glass"; SavePreferences(); };
+        style.Children.Add(bubbleStyle);
         var snap = new CheckBox { Content = "Snap pet to nearest screen edge after dragging", IsChecked = _config.PetSnapToEdge };
         snap.IsCheckedChanged += (_, _) => { _config.PetSnapToEdge = snap.IsChecked == true; SavePreferences(); }; style.Children.Add(snap);
         var compact = new CheckBox { Content = "Compact quick bar", IsChecked = _config.CompactQuickBar };
@@ -130,10 +174,10 @@ public partial class MainWindow
         Closed += (_, _) => { _petStatusTimer?.Stop(); _petBubble?.Close(); _desktopPet?.Close(); _petBitmap?.Dispose(); };
     }
 
-    private void UpdateDesktopPet()
+    private void UpdateDesktopPet(bool force = false)
     {
         if (_petPreview is not null) { _petPreview.AnimationsEnabled = _config.PetAnimations && !_config.PetReducedMotion; _petPreview.AnimationSpeed = _config.PetAnimationSpeed; _petPreview.AnimationIntensity = _config.PetAnimationIntensity; }
-        if (!_config.PetEnabled) { _petBubble?.Close(); _desktopPet?.Hide(); return; }
+        if (!_config.PetEnabled && !force) { _petBubble?.Close(); _desktopPet?.Hide(); return; }
         if (_desktopPet is null)
         {
             var status = new TextBlock { HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Center, FontSize = 10 };
@@ -142,6 +186,15 @@ public partial class MainWindow
             var layout = new StackPanel { VerticalAlignment = Avalonia.Layout.VerticalAlignment.Center, Children = { _petMark, _petImage, status } };
             var pet = new Window { Title = "J.A.R.V.I.S. pet", SystemDecorations = SystemDecorations.None, Background = Brushes.Transparent, TransparencyLevelHint = new[] { WindowTransparencyLevel.Transparent }, Topmost = true, ShowInTaskbar = false, CanResize = false, Content = layout };
             _desktopPet = pet;
+            var previousPosition = pet.Position;
+            pet.PositionChanged += (_, _) =>
+            {
+                var next = pet.Position; var dx = next.X - previousPosition.X; var dy = next.Y - previousPosition.Y; previousPosition = next;
+                if (_petBubble is not { IsVisible: true } current) return;
+                var area = (Screens.ScreenFromWindow(pet) ?? Screens.Primary)?.WorkingArea ?? new PixelRect(0, 0, 1280, 720);
+                var scale = (Screens.ScreenFromWindow(pet) ?? Screens.Primary)?.Scaling ?? 1;
+                current.Position = new PixelPoint(Math.Clamp(current.Position.X + dx, area.X, Math.Max(area.X, area.Right - (int)(current.Bounds.Width * scale))), Math.Clamp(current.Position.Y + dy, area.Y, Math.Max(area.Y, area.Bottom - (int)(current.Bounds.Height * scale))));
+            };
             var menu = new ContextMenu();
             void Item(string label, Action action) { var item = new MenuItem { Header = label }; item.Click += (_, _) => action(); menu.Items.Add(item); }
             Item("Quick chat", ToggleQuickBar); Item("Open full deck", OpenFullDeck);
@@ -209,6 +262,11 @@ public partial class MainWindow
         }
         if (!_desktopPet.IsVisible) _desktopPet.Show();
     }
+
+    private void HideTemporaryPetLater() => Dispatcher.UIThread.Post(() =>
+    {
+        if (!_config.PetEnabled && !_busy && _petBubble is null && _mini is not { IsVisible: true }) _desktopPet?.Hide();
+    }, DispatcherPriority.Background);
 
     private void SnapPetToEdge(Window pet)
     {

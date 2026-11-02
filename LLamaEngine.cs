@@ -142,7 +142,7 @@ public sealed class LLamaEngine : IDisposable
         }
     }
 
-    public async Task<string> GenerateAsync(string userMessage, CancellationToken cancellationToken = default, bool quickReply = false)
+    public async Task<string> GenerateAsync(string userMessage, CancellationToken cancellationToken = default, bool quickReply = false, Action<string>? progress = null)
     {
         await _modelGate.WaitAsync(cancellationToken);
         try
@@ -165,7 +165,8 @@ public sealed class LLamaEngine : IDisposable
             await CompactIfNeededAsync(executor, userMessage, cancellationToken);
             var prompt = BuildPrompt(userMessage);
             var outputTokens = quickReply || Mode == "Instant" ? 256 : Math.Clamp(Config.ResponseTokens, 128, Config.ActiveProvider == "Local" ? 1024 : 4096);
-            var answer = await InferAsync(executor, prompt, outputTokens, cancellationToken);
+            var safeProgress = !Config.FileTools && !CanGenerateImages && !Mcp.GetEnabledTools().Any() ? progress : null;
+            var answer = await InferAsync(executor, prompt, outputTokens, cancellationToken, safeProgress);
             for (var calls = 0; calls < 3 && McpToolParser.TryParse(answer, out var request, out var arguments); calls++)
             {
                 var parsedRequest = request!;
@@ -324,7 +325,7 @@ public sealed class LLamaEngine : IDisposable
             throw new InvalidOperationException("This message is too long for the selected model's context. Try a shorter message.");
     }
 
-    private async Task<string> InferAsync(StatelessExecutor? executor, string prompt, int maxTokens, CancellationToken token)
+    private async Task<string> InferAsync(StatelessExecutor? executor, string prompt, int maxTokens, CancellationToken token, Action<string>? progress = null)
     {
         var system = SystemPrompt;
         if (executor is null) return await _router.CompleteAsync(Config, system, prompt, maxTokens, token);
@@ -342,7 +343,7 @@ public sealed class LLamaEngine : IDisposable
         var result = new StringBuilder();
         await foreach (var text in executor.InferAsync(prompt, new InferenceParams { MaxTokens = maxTokens,
             SamplingPipeline = new DefaultSamplingPipeline { Temperature = (float)(Config.DeliberateMode ? Math.Min(.35, Config.Temperature) : Config.Temperature) } }, token))
-            result.Append(text);
+        { result.Append(text); progress?.Invoke(text); }
         return result.ToString().Trim();
     }
 

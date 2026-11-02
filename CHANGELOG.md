@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 1.3.4 — 2026-11-02
+
+- Alt+Space opens pet chat and search, temporarily showing the pet when it is normally hidden.
+- Added speech bubbles with white, black and frosted glass appearances, Markdown, reply controls and pet-following placement.
+- Added streaming local replies when tool processing is disabled, with a stop button.
+- Expanded Windows app discovery and added quick actions for exact app names and focus timers.
+- Added a J.A.R.V.I.S. / Verity selector to Pet Studio.
+
 ## 1.3.3 — 2026-11-02
 
 - Added Pet Studio sizing presets, activity animation controls, reduced motion and animation previews.

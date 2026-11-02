@@ -34,7 +34,7 @@
       <ScrollViewer x:Name="ReplyScroll" Grid.Row="1" IsVisible="False" Margin="8"><StackPanel Spacing="10"><ProgressBar x:Name="ThinkingProgress" IsIndeterminate="True" Height="2" IsVisible="False"/><ContentControl x:Name="ReplyContent"/></StackPanel></ScrollViewer>
       <TextBlock x:Name="Status" Grid.Row="2" Classes="muted" TextWrapping="Wrap" FontSize="10" Margin="8,4"/>
      </Grid>
-     <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8"><TextBlock Text="Alt+1–5 launch · Ctrl+Enter ask · Esc tuck away" FontSize="10" Classes="muted" VerticalAlignment="Center"/><Button x:Name="AskButton" Classes="primary" Grid.Column="1" AutomationProperties.Name="Ask" Click="Ask_Click" Padding="12,7"><StackPanel Orientation="Horizontal" Spacing="8"><local:AppIcon Kind="arrow-up"/><TextBlock Text="Ask" VerticalAlignment="Center"/></StackPanel></Button></Grid>
+     <Grid Grid.Row="2" ColumnDefinitions="*,Auto" ColumnSpacing="8"><TextBlock Text="Enter ask · Alt+1–5 launch · Esc close" FontSize="10" Classes="muted" VerticalAlignment="Center"/><Button x:Name="AskButton" Classes="primary" Grid.Column="1" AutomationProperties.Name="Ask" Click="Ask_Click" Padding="12,7"><StackPanel Orientation="Horizontal" Spacing="8"><local:AppIcon Kind="arrow-up"/><TextBlock Text="Ask" VerticalAlignment="Center"/></StackPanel></Button></Grid>
     </Grid>
    </Grid>
    </Grid>

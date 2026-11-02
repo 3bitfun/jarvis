@@ -52,6 +52,7 @@ public sealed class AppConfig
     public int PetBubbleHeight { get; set; } = 260;
     public int PetBubbleFontSize { get; set; } = 15;
     public int PetBubbleSeconds { get; set; } = 0;
+    public string PetBubbleStyle { get; set; } = "Frosted glass";
     public bool PetSnapToEdge { get; set; }
     public bool PetReducedMotion { get; set; }
     public double PetAnimationSpeed { get; set; } = 1;

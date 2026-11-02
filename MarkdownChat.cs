@@ -14,7 +14,8 @@ namespace JARVIS;
 public sealed class MarkdownChat : IDisposable
 {
     private readonly double _fontSize;
-    public MarkdownChat(double fontSize = 15) { _fontSize = Math.Clamp(fontSize, 10, 24); }
+    private readonly IBrush? _foreground;
+    public MarkdownChat(double fontSize = 15, IBrush? foreground = null) { _fontSize = Math.Clamp(fontSize, 10, 24); _foreground = foreground; }
     private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder().UseAdvancedExtensions().Build();
     private readonly List<Bitmap> _images = new();
     private readonly CancellationTokenSource _cancel = new();
@@ -71,7 +72,7 @@ public sealed class MarkdownChat : IDisposable
                 panel.Children.Add(new Border { Background = Brush.Parse("#60000000"), CornerRadius = new(12), Padding = new(14), Child = new StackPanel { Spacing = 10, Children =
                 {
                     header, new ScrollViewer { HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Auto, VerticalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled,
-                    Content = new SelectableTextBlock { Text = source, FontFamily = new("Cascadia Mono,Consolas,monospace"), FontSize = 13, TextWrapping = TextWrapping.NoWrap } }
+                    Content = new SelectableTextBlock { Text = source, Foreground = Brushes.White, FontFamily = new("Cascadia Mono,Consolas,monospace"), FontSize = 13, TextWrapping = TextWrapping.NoWrap } }
                 } } });
             }
             else if (block is Table table)
@@ -100,6 +101,7 @@ public sealed class MarkdownChat : IDisposable
             else if (block is LeafBlock leaf)
             {
                 var text = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = block is HeadingBlock heading ? _fontSize + 11 - heading.Level * 2 : _fontSize };
+                if (_foreground is not null) text.Foreground = _foreground;
                 if (block is HeadingBlock) text.FontWeight = FontWeight.Bold;
                 if (leaf.Inline is not null) Inlines(leaf.Inline, text.Inlines!, panel, false, false);
                 panel.Children.Add(text);
@@ -110,7 +112,7 @@ public sealed class MarkdownChat : IDisposable
                 foreach (var item in list.OfType<ContainerBlock>())
                 {
                     var row = new Grid { ColumnDefinitions = new("28,*"), Margin = new(8, 0, 0, 0) };
-                    row.Children.Add(new TextBlock { Text = list.IsOrdered ? $"{i++}." : "•" });
+                    var marker = new TextBlock { Text = list.IsOrdered ? $"{i++}." : "•" }; if (_foreground is not null) marker.Foreground = _foreground; row.Children.Add(marker);
                     var content = new StackPanel { Spacing = 5 }; Blocks(item, content);
                     Grid.SetColumn(content, 1); row.Children.Add(content); panel.Children.Add(row);
                 }

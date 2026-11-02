@@ -143,7 +143,7 @@ public partial class MiniLauncherWindow : Window
         ResultCount.Text = _visible.Length == 0 ? "" : _visible.Length + " results";
         SectionLabel.Text = query.Length == 0 ? "Applications" : "Search results";
         ClearButton.IsVisible = query.Length > 0;
-        Status.Text = _visible.Length == 0 ? "No app match. Ctrl+Enter sends your question to J.A.R.V.I.S." : "Launch an app instantly with Alt+1–5, or ask your assistant.";
+        Status.Text = _visible.Length == 0 ? "No app match. Press Enter to ask J.A.R.V.I.S." : "Press Enter to ask, or Alt+1–5 to launch an app.";
         foreach (var result in _visible) _ = LoadIconAsync(result.App);
         if (_state != PetPillState.Idle || query.Length > 0) SetPillState(PetPillState.Input);
     }
@@ -193,7 +193,7 @@ public partial class MiniLauncherWindow : Window
         else if (e.Key == Key.Enter && navigatingResults)
         {
             e.Handled = true;
-            if (!e.KeyModifiers.HasFlag(KeyModifiers.Control) && Results.IsVisible && Results.SelectedItem is LauncherResult result) Launch(result.App);
+            if (Results.IsKeyboardFocusWithin && !e.KeyModifiers.HasFlag(KeyModifiers.Control) && Results.IsVisible && Results.SelectedItem is LauncherResult result) Launch(result.App);
             else await AskAsync();
         }
     }
@@ -203,7 +203,7 @@ public partial class MiniLauncherWindow : Window
         catch (Exception) { Status.Text = "Couldn't open " + app.Name + ". Try another result or refresh the app list next launch."; }
     }
     private void Results_SelectionChanged(object? sender, SelectionChangedEventArgs e)
-    { if (_ready && Results.SelectedItem is LauncherResult result) Status.Text = "Enter to open " + result.App.Name + " · Ctrl+Enter to ask instead"; }
+    { if (_ready && Results.SelectedItem is LauncherResult result) Status.Text = "Enter to ask · Alt+1–5 to launch " + result.App.Name; }
     private void Results_DoubleTapped(object? sender, TappedEventArgs e)
     { if (!_busy && Results.SelectedItem is LauncherResult result) Launch(result.App); }
     private void Favorite_Click(object? sender, RoutedEventArgs e)
