@@ -175,10 +175,14 @@ public partial class MainWindow : Window
             if (actionReply is not null) { _engine.RecordAction(text, actionReply); ShowConversation(); RefreshChats(); _mini?.Hide(); ShowPetReply(actionReply); return actionReply; }
             var count = _engine.Conversation.Count;
             _mini?.Hide(); ShowPetReply("Thinking…", true);
+            var streamingBubble = _petBubble;
             var stream = new System.Text.StringBuilder();
-            await SendAsync(text, true, part => Dispatcher.UIThread.Post(() => { if (_petStreamText is null) return; stream.Append(part); _petStreamText.Text = stream.ToString(); }));
-            var reply = _engine.Conversation.Count > count ? _engine.Conversation.Last().Assistant : StatusText.Text ?? "Request did not complete.";
-            _mini?.Hide(); ShowPetReply(reply); return reply;
+            await SendAsync(text, true, part => Dispatcher.UIThread.Post(() => { if (!ReferenceEquals(_petBubble, streamingBubble) || _petStreamText is null) return; stream.Append(part); _petStreamText.Text = stream.ToString(); }));
+            var reply = _engine.Conversation.Count > count ? _engine.Conversation.Last().Assistant :
+                stream.Length > 0 ? stream + "\n\n*" + (_quickReplyFailure ?? "Response stopped before completion.") + "*" : _quickReplyFailure ?? StatusText.Text ?? "Request did not complete.";
+            if (ReferenceEquals(_petBubble, streamingBubble)) ShowPetReply(reply);
+            else HideTemporaryPetLater();
+            return reply;
         }, OpenFullDeck, () => (_config.ActiveProvider == "Local" ? "Local AI" : _config.ActiveProvider) + " · " + (_busy ? "Working…" : (_config.ActiveProvider == "Local" && _engine.ActiveModelPath is null ? "Choose a model" : "Ready")), _launcher);
         if (newLauncher) _mini.PropertyChanged += (_, e) => { if (e.Property == IsVisibleProperty && _mini is { IsVisible: false }) HideTemporaryPetLater(); };
         if (_mode == HudMode.MINIMIZED_ORB && IsVisible) Hide();
@@ -187,13 +191,36 @@ public partial class MainWindow : Window
     }
     private string? TryPetAction(string text)
     {
-        var match = System.Text.RegularExpressions.Regex.Match(text.Trim(), @"^(?:open|launch|start)\s+(.+?)[.!]?$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-        if (!match.Success) return null;
-        var target = match.Groups[1].Value.Trim();
-        var timer = System.Text.RegularExpressions.Regex.Match(target, @"^(?:a\s+)?(?:focus\s+)?timer\s+(?:for\s+)?(\d{1,3})\s+minutes?$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
-        if (timer.Success && int.TryParse(timer.Groups[1].Value, out var minutes) && minutes is >= 1 and <= 180)
-        { _focusEndsAt = DateTime.Now.AddMinutes(minutes); _focusTimer.Start(); UpdateFocusTimer(); return $"Focus timer started for {minutes} minutes."; }
-        var app = _launcher.Apps.FirstOrDefault(a => a.Name.Equals(target, StringComparison.OrdinalIgnoreCase));
+        var action = PetQuickAction.Parse(text);
+        if (action is null) return null;
+        if (action.Kind == PetActionKind.Invalid) return action.Value;
+        if (action.Kind == PetActionKind.StopTimer)
+        {
+            if (_focusEndsAt is null) return "There isn't a focus timer running.";
+            _focusTimer.Stop(); _focusEndsAt = null; FocusTimerText.Text = "Focus timer stopped."; HomePage.SetRoutineStatus(FocusTimerText.Text); return FocusTimerText.Text;
+        }
+        if (action.Kind == PetActionKind.TimerStatus)
+        {
+            if (_focusEndsAt is not { } end || end <= DateTime.Now) return "There isn't a focus timer running.";
+            var remaining = end - DateTime.Now; return $"Your focus timer has {remaining:hh\\:mm\\:ss} remaining.";
+        }
+        if (action.Kind == PetActionKind.Note)
+        {
+            var folder = action.Desktop ? Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory) : Path.Combine(_config.Workspace, "notes");
+            if (string.IsNullOrWhiteSpace(folder)) return "Couldn't find the desktop folder.";
+            try
+            {
+                Directory.CreateDirectory(folder);
+                var path = Path.Combine(folder, $"JARVIS note {DateTime.Now:yyyy-MM-dd HHmmss}-{Guid.NewGuid().ToString("N")[..6]}.txt");
+                using var file = new FileStream(path, FileMode.CreateNew, FileAccess.Write, FileShare.Read);
+                using var writer = new StreamWriter(file); writer.Write(action.Value);
+                return "Saved your note to " + path;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException) { return "Couldn't save the note: " + ex.Message; }
+        }
+        if (action.Kind == PetActionKind.Timer)
+        { _focusEndsAt = DateTime.Now.AddMinutes(action.Minutes); _focusTimer.Start(); UpdateFocusTimer(); return $"Focus timer started for {action.Minutes} minutes."; }
+        var app = _launcher.Apps.FirstOrDefault(a => a.Name.Equals(action.Value, StringComparison.OrdinalIgnoreCase));
         if (app is null) return null;
         try { _launcher.Launch(app); return "Opened " + app.Name + "."; }
         catch (Exception ex) { return "Couldn't open " + app.Name + ": " + ex.Message; }
@@ -312,6 +339,7 @@ public partial class MainWindow : Window
     }
     private async void Send_Click(object? s, RoutedEventArgs e) => await SendAsync();
     private async void PromptBox_KeyDown(object? s, KeyEventArgs e) { if (e.Key != Key.Enter || e.KeyModifiers.HasFlag(KeyModifiers.Shift)) return; e.Handled = true; if (!_busy) await SendAsync(); }
+    private string? _quickReplyFailure;
     private async Task SendAsync(string? orbPrompt = null, bool quickReply = false, Action<string>? progress = null)
     {
         var text = (orbPrompt ?? PromptBox.Text)?.Trim(); if (_busy || string.IsNullOrWhiteSpace(text)) return;
@@ -325,6 +353,7 @@ public partial class MainWindow : Window
             ContextHint.Text = _config.MemoryEnabled ? "Routine action saved in this chat" : "Memory paused · routine action stays in this session";
             return;
         }
+        if (quickReply) _quickReplyFailure = null;
         using var cancellation = new CancellationTokenSource(); _generation = cancellation;
         var stopwatch = Stopwatch.StartNew();
         _retryPrompt = null;
@@ -344,11 +373,13 @@ public partial class MainWindow : Window
         }
         catch (OperationCanceledException)
         {
+            if (quickReply) _quickReplyFailure = "Stopped. Your message was not added to the conversation.";
             ShowConversation(); if (orbPrompt is null) PromptBox.Text = text; StatusText.Text = "Stopped. Your message is preserved.";
             if (_mode == HudMode.MINIMIZED_ORB) OrbTip("Stopped");
         }
         catch (Exception ex)
         {
+            if (quickReply) _quickReplyFailure = "Couldn't complete the request: " + ex.Message;
             ShowConversation(); if (orbPrompt is null) PromptBox.Text = text; _retryPrompt = text;
             var alert = new StackPanel { Spacing = 12 };
             alert.Children.Add(new TextBlock { Text = "Couldn't finish that reply. " + ex.Message, TextWrapping = TextWrapping.Wrap });
@@ -745,7 +776,9 @@ public partial class MainWindow : Window
         if (remaining <= TimeSpan.Zero)
         {
             _focusTimer.Stop(); _focusEndsAt = null; FocusTimerText.Text = "Focus session complete. Take a short break.";
-            StatusText.Text = "Focus session complete"; HomePage.SetRoutineStatus(FocusTimerText.Text); return;
+            StatusText.Text = "Focus session complete"; HomePage.SetRoutineStatus(FocusTimerText.Text);
+            if (_desktopPet is { IsVisible: true } && _petBubble is null && !_busy) ShowPetReply("Your focus timer is finished. Take a short break.");
+            return;
         }
         var text = $"Focus session · {remaining:hh\\:mm\\:ss} remaining";
         FocusTimerText.Text = text; StatusText.Text = text; HomePage.SetRoutineStatus(text);

@@ -38,6 +38,7 @@ public partial class MiniLauncherWindow : Window
     public MiniLauncherWindow(Func<string, Task<string>> ask, Action fullDeck, Func<string>? petStatus = null, AppLauncher? launcher = null)
     {
         _launcher = launcher ?? new(); _ask = ask; _fullDeck = fullDeck; _petStatus = petStatus ?? (() => "J.A.R.V.I.S. · Ready"); InitializeComponent(); _ready = true;
+        ToolTip.SetTip(QueryBox, "Try: open Notepad · start a 25 minute timer · timer status · stop timer · make a note: Buy milk");
         GlassBackdrop.Configure(this);
         _statusTimer.Tick += (_, _) => { if (IsVisible) PetStatus.Text = _busy ? "Thinking…" : _petStatus(); };
         _statusTimer.Start();

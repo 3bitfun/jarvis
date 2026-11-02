@@ -37,6 +37,7 @@ try {
     if (Get-ChildItem -LiteralPath $payload -Filter '*.gguf' -File -Recurse) { throw 'Unexpected GGUF in the application payload.' }
     Copy-Item -LiteralPath (Join-Path $workspace 'MODELS-AND-COMMANDS.md') -Destination $payload
     Copy-Item -LiteralPath (Join-Path $workspace 'MCP.md') -Destination $payload
+    Copy-Item -LiteralPath (Join-Path $workspace 'PET-GUIDE.md') -Destination $payload
     Copy-Item -LiteralPath (Join-Path $workspace 'RELEASE.md') -Destination $payload
     Copy-Item -LiteralPath (Join-Path $workspace 'CHANGELOG.md') -Destination $payload
     # Delete only known app payload files on uninstall. Models and user data are retained.

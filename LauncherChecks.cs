@@ -10,6 +10,15 @@ internal static class LauncherChecks
             if (MiniLauncherWindow.ShortcutIndex(keys[i]) != i || MiniLauncherWindow.ShortcutIndex(pad[i]) != i) throw new Exception("Shortcut mapping failed.");
         if (MiniLauncherWindow.ShortcutIndex(Key.D6) != -1) throw new Exception("Unexpected shortcut mapping.");
         if (AppLauncher.MatchScore("Google Chrome", "gch") <= 0 || AppLauncher.MatchScore("Google Chrome", "Chrome") <= AppLauncher.MatchScore("Google Chrome", "gch")) throw new Exception("Search ranking failed.");
+        if (PetQuickAction.Parse("start a focus timer for 25 minutes") is not { Kind: PetActionKind.Timer, Minutes: 25 } ||
+            PetQuickAction.Parse("start timer for 0 minutes") is not { Kind: PetActionKind.Invalid } ||
+            PetQuickAction.Parse("start a 15 minute timer") is not { Kind: PetActionKind.Timer, Minutes: 15 } ||
+            PetQuickAction.Parse("stop my timer") is not { Kind: PetActionKind.StopTimer } ||
+            PetQuickAction.Parse("timer status") is not { Kind: PetActionKind.TimerStatus } ||
+            PetQuickAction.Parse("create a note: desktop ideas") is not { Kind: PetActionKind.Note, Desktop: false, Value: "desktop ideas" } ||
+            PetQuickAction.Parse("make a note on my desktop: Hello") is not { Kind: PetActionKind.Note, Desktop: true, Value: "Hello" } ||
+            PetQuickAction.Parse("tell me how to open Notepad") is not null)
+            throw new Exception("Pet action recognition failed.");
         Console.WriteLine("Shortcut mappings and search ranking passed. Indexing apps…");
         var launcher = new AppLauncher(); await launcher.RefreshAsync();
         var results = launcher.Search("");

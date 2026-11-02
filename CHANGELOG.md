@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 1.3.5 — 2026-11-02
+
+- Improved pet bubble positioning, cancellation, partial responses and temporary visibility.
+- Added dictated notes, focus timer status and cancellation, and completion bubbles.
+- Synchronized the Verity selector and added a pet quick chat guide.
+
 ## 1.3.4 — 2026-11-02
 
 - Alt+Space opens pet chat and search, temporarily showing the pet when it is normally hidden.
