@@ -48,6 +48,16 @@ public sealed class AppConfig
     public string PetPersonality { get; set; } = "Professional";
     public bool PetAnimations { get; set; } = true;
     public string PetImagePath { get; set; } = "";
+    public int PetBubbleWidth { get; set; } = 360;
+    public int PetBubbleHeight { get; set; } = 260;
+    public int PetBubbleFontSize { get; set; } = 15;
+    public int PetBubbleSeconds { get; set; } = 0;
+    public bool PetSnapToEdge { get; set; }
+    public bool PetReducedMotion { get; set; }
+    public double PetAnimationSpeed { get; set; } = 1;
+    public double PetAnimationIntensity { get; set; } = 1;
+    public bool CompactQuickBar { get; set; }
+    public bool PetAlwaysOnTop { get; set; } = true;
     public List<string> DashboardWidgets { get; set; } = new() { "Core", "System", "Storage", "Network", "Clock", "Suggestions" };
     public Dictionary<string, bool> WideWidgets { get; set; } = new();
     public bool WeatherEnabled { get; set; }

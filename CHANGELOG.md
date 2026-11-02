@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 1.3.3 — 2026-11-02
+
+- Added Pet Studio sizing presets, activity animation controls, reduced motion and animation previews.
+- Added speech bubble dimensions, text size, duration, preview and copy controls.
+- Added compact quick bar, optional edge snapping, monitor recovery and pet always-on-top control.
+
 ## 1.3.2 — 2026-11-02
 
 - Connected Alt+Space quick chat and app search to the desktop pet, with Markdown reply bubbles.

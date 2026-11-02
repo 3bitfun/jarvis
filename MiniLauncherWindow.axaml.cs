@@ -25,6 +25,7 @@ public partial class MiniLauncherWindow : Window
     private PixelRect _workArea = new(0, 0, 1920, 1080);
     private double _scale = 1;
     private Window? _petAnchor;
+    public bool CompactLayout { get; set; }
     private bool _movingInput, _replyReady;
     private readonly DispatcherTimer _statusTimer = new() { Interval = TimeSpan.FromSeconds(2) };
     private bool _busy, _closed, _ready;
@@ -93,8 +94,8 @@ public partial class MiniLauncherWindow : Window
         var idle = state == PetPillState.Idle;
         var areaWidth = _workArea.Width / _scale;
         var areaHeight = _workArea.Height / _scale;
-        Width = Math.Min(idle ? 344 : 560, areaWidth - 24);
-        var desiredHeight = idle ? 72 : state == PetPillState.Reply ? 400 : Math.Clamp(218 + _visible.Length * 46, 300, 470);
+        Width = Math.Min(idle ? 344 : CompactLayout ? 440 : 560, areaWidth - 24);
+        var desiredHeight = idle ? 72 : state == PetPillState.Reply ? (CompactLayout ? 320 : 400) : Math.Clamp((CompactLayout ? 178 : 218) + _visible.Length * 46, 260, CompactLayout ? 390 : 470);
         Height = Math.Min(desiredHeight, areaHeight - 48);
         if (_petAnchor is not null)
         {

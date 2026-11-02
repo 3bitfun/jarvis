@@ -13,6 +13,8 @@ using System.Diagnostics;
 namespace JARVIS;
 public sealed class MarkdownChat : IDisposable
 {
+    private readonly double _fontSize;
+    public MarkdownChat(double fontSize = 15) { _fontSize = Math.Clamp(fontSize, 10, 24); }
     private static readonly MarkdownPipeline Pipeline = new MarkdownPipelineBuilder().UseAdvancedExtensions().Build();
     private readonly List<Bitmap> _images = new();
     private readonly CancellationTokenSource _cancel = new();
@@ -97,7 +99,7 @@ public sealed class MarkdownChat : IDisposable
             }
             else if (block is LeafBlock leaf)
             {
-                var text = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = block is HeadingBlock heading ? 26 - heading.Level * 2 : 15 };
+                var text = new TextBlock { TextWrapping = TextWrapping.Wrap, FontSize = block is HeadingBlock heading ? _fontSize + 11 - heading.Level * 2 : _fontSize };
                 if (block is HeadingBlock) text.FontWeight = FontWeight.Bold;
                 if (leaf.Inline is not null) Inlines(leaf.Inline, text.Inlines!, panel, false, false);
                 panel.Children.Add(text);

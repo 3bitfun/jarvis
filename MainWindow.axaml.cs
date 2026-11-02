@@ -174,6 +174,7 @@ public partial class MainWindow : Window
             ShowPetReply(reply); return reply;
         }, OpenFullDeck, () => (_config.ActiveProvider == "Local" ? "Local AI" : _config.ActiveProvider) + " · " + (_busy ? "Working…" : (_config.ActiveProvider == "Local" && _engine.ActiveModelPath is null ? "Choose a model" : "Ready")), _launcher);
         if (_mode == HudMode.MINIMIZED_ORB && IsVisible) Hide();
+        _mini.CompactLayout = _config.CompactQuickBar;
         _mini.Toggle(_desktopPet is { IsVisible: true } ? _desktopPet : this, _desktopPet is { IsVisible: true });
     }
     private void Hide_Click(object? s, RoutedEventArgs e) => Hide();
