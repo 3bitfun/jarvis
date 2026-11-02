@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 1.3.6 — 2026-11-02
+
+- Added Original, Modern, Focus and Command Center layouts, sizing controls, accent presets and Stark-inspired HUD colors.
+- Added customizable Home shortcuts and dashboard widgets for timers, conversations, pinned apps, models and notes.
+- Improved Home layout, responsive card sizing and Command Center animation controls.
+
 ## 1.3.5 — 2026-11-02
 
 - Improved pet bubble positioning, cancellation, partial responses and temporary visibility.

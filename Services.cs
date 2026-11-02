@@ -29,6 +29,13 @@ public sealed class AppConfig
 {
     public string ActiveProvider { get; set; } = "Local";
     public string Theme { get; set; } = "Obsidian Glass";
+    public string Layout { get; set; } = "Original";
+    public int SidebarWidth { get; set; } = 240;
+    public int ChatWidth { get; set; } = 900;
+    public int MessageSpacing { get; set; } = 22;
+    public bool HideSidebar { get; set; }
+    public bool HighTextContrast { get; set; }
+    public double HudAnimationIntensity { get; set; } = 1;
     public int VisualStyleVersion { get; set; }
     public string Accent { get; set; } = "#D5E9A4";
     public string Tint { get; set; } = "#17191B";
@@ -60,6 +67,7 @@ public sealed class AppConfig
     public bool CompactQuickBar { get; set; }
     public bool PetAlwaysOnTop { get; set; } = true;
     public List<string> DashboardWidgets { get; set; } = new() { "Core", "System", "Storage", "Network", "Clock", "Suggestions" };
+    public List<string> HomeShortcuts { get; set; } = new() { "New chat", "Quick search", "Focus timer", "New note" };
     public Dictionary<string, bool> WideWidgets { get; set; } = new();
     public bool WeatherEnabled { get; set; }
     public bool NewsEnabled { get; set; }

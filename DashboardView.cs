@@ -21,11 +21,13 @@ public sealed class DashboardView : UserControl
     private ulong _idle, _total;
     private string? _gpu;
     private static readonly HttpClient Client = new() { Timeout = TimeSpan.FromSeconds(15) };
-    private readonly string[] _types = { "Core", "System", "Storage", "Network", "Clock", "Suggestions", "Weather", "News" };
+    private readonly string[] _types = { "Core", "System", "Storage", "Network", "Clock", "Suggestions", "Weather", "News", "Focus timer", "Recent chats", "Pinned apps", "Model status", "Notes" };
+    public Func<string, string>? WidgetData { get; set; }
     private static readonly DataFormat<string> WidgetFormat = DataFormat.CreateStringApplicationFormat("jarvis-widget");
     public DashboardView()
     {
         Content = _body;
+        SizeChanged += (_, _) => UpdateCardWidths();
         _timer.Tick += async (_, _) => { if (IsEffectivelyVisible) await SampleAsync(); };
         AttachedToVisualTree += (_, _) => _timer.Start(); DetachedFromVisualTree += (_, _) => _timer.Stop();
     }
@@ -70,13 +72,20 @@ public sealed class DashboardView : UserControl
             var content = new StackPanel { Spacing = 12, Children = { header, text, actions } };
             if (id == "Core") content.Children.Insert(1, new AssistantMark { Width = 100, Height = 100 });
             var card = new Border { Width = _config.WideWidgets.GetValueOrDefault(id) ? 580 : 280, MinHeight = 170, Padding = new Thickness(18), Margin = new Thickness(0, 0, 12, 12), CornerRadius = new CornerRadius(16), BorderThickness = new Thickness(1), Child = content };
+            card.Tag = id;
             card.Bind(Border.BackgroundProperty, this.GetResourceObservable("RaisedBrush"));
             card.Bind(Border.BorderBrushProperty, this.GetResourceObservable("LineBrush"));
             DragDrop.SetAllowDrop(card, true);
             card.AddHandler(DragDrop.DropEvent, (_, e) => { if (e.DataTransfer.TryGetValue(WidgetFormat) is not string source || !_config.DashboardWidgets.Contains(source) || source == id) return; var target = _config.DashboardWidgets.IndexOf(id); _config.DashboardWidgets.Remove(source); _config.DashboardWidgets.Insert(Math.Min(target, _config.DashboardWidgets.Count), source); _save(); Render(); e.Handled = true; });
             _cards.Children.Add(card);
         }
-        _ = SampleAsync();
+        UpdateCardWidths(); _ = SampleAsync();
+    }
+    private void UpdateCardWidths()
+    {
+        if (Bounds.Width <= 0) return;
+        foreach (var card in _cards.Children.OfType<Border>())
+            if (card.Tag is string id) card.Width = Math.Max(120, Math.Min(_config.WideWidgets.GetValueOrDefault(id) ? 580 : 280, Bounds.Width - 12));
     }
     private void Move(string id, int delta) { var index = _config.DashboardWidgets.IndexOf(id); var next = Math.Clamp(index + delta, 0, _config.DashboardWidgets.Count - 1); _config.DashboardWidgets.RemoveAt(index); _config.DashboardWidgets.Insert(next, id); _save(); Render(); }
     private void Set(string id, string text) { if (_values.TryGetValue(id, out var label)) label.Text = text; }
@@ -119,6 +128,7 @@ public sealed class DashboardView : UserControl
             Set("Clock", DateTime.Now.ToString("HH:mm:ss\ndddd, d MMMM yyyy") + "\nUptime " + TimeSpan.FromMilliseconds(Environment.TickCount64).ToString(@"d\.hh\:mm"));
             Set("Core", (_config.VerityMode ? "VERITY" : "J.A.R.V.I.S.") + "\n" + _config.ActiveProvider + " · " + _config.ResponseMode + "\nMemory " + (_config.MemoryEnabled ? "enabled" : "paused"));
             Set("Suggestions", _config.ActiveProvider == "Local" && string.IsNullOrEmpty(_config.PreferredLocalModel) ? "Choose or download a GGUF in Engine settings." : "Continue a recent chat, launch your work apps, or start a focus session.");
+            foreach (var id in new[] { "Focus timer", "Recent chats", "Pinned apps", "Model status", "Notes" }) Set(id, WidgetData?.Invoke(id) ?? "Unavailable");
         }
         catch (Exception) { Set("System", "System readings are unavailable on this device."); }
         finally { _sampling = false; }

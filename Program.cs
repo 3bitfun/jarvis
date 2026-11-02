@@ -32,6 +32,7 @@ internal static class Program
         {
             BuildAvaloniaApp().SetupWithoutStarting();
             var main = new MainWindow(false);
+            main.CheckLayoutSizing();
             using var markdown = new MarkdownChat();
             var link = (StackPanel)markdown.Render("[Documentation](https://example.org/docs)");
             if (link.Children.OfType<TextBlock>().Single().Inlines!.OfType<Avalonia.Controls.Documents.InlineUIContainer>().Count() != 1) throw new InvalidOperationException("Markdown links are not rendered as native clickable links.");

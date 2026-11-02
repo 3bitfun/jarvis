@@ -519,9 +519,12 @@ public partial class MainWindow : Window
             actions.Children.Add(copy); Grid.SetColumn(actions, 1); header.Children.Add(actions);
         }
         content.Children.Add(header); content.Children.Add(body);
-        ChatLog.Children.Add(new Border { Child = content, Padding = new Thickness(20), CornerRadius = new CornerRadius(14),
-            Background = this.FindResource(user ? "RaisedBrush" : "PanelBrush") as IBrush,
-            BorderBrush = this.FindResource("LineBrush") as IBrush, BorderThickness = new Thickness(1) });
+        var modern = _config.Layout is "Modern" or "Focus";
+        ChatLog.Children.Add(new Border { Child = content, Padding = new Thickness(modern && !user ? 8 : 20), CornerRadius = new CornerRadius(_config.Layout == "Command Center" ? 6 : modern ? 20 : 14),
+            HorizontalAlignment = modern && user ? Avalonia.Layout.HorizontalAlignment.Right : Avalonia.Layout.HorizontalAlignment.Stretch,
+            MaxWidth = modern && user ? 620 : double.PositiveInfinity,
+            Background = modern && !user ? Brushes.Transparent : this.FindResource(user ? "RaisedBrush" : "PanelBrush") as IBrush,
+            BorderBrush = this.FindResource("LineBrush") as IBrush, BorderThickness = modern && !user ? new Thickness(0) : new Thickness(1) });
         Dispatcher.UIThread.Post(() => ChatScroll.ScrollToEnd());
     }
     private void ShowConversation()

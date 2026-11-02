@@ -13,12 +13,71 @@ public partial class MainWindow
     private void InitializeReleaseFeatures(bool interactive)
     {
         HomePage.ConfigureDashboard(_config, SavePreferences, ShowWelcome);
+        HomePage.WidgetData = id => id switch
+        {
+            "Focus timer" => _focusEndsAt is { } end && end > DateTime.Now ? $"Remaining: {(end - DateTime.Now):hh\\:mm\\:ss}" : "No timer running",
+            "Recent chats" => string.Join("\n", _engine.Chats.Where(c => c.Title != "New chat").Take(4).Select(c => c.Title).DefaultIfEmpty("No recent conversations")),
+            "Pinned apps" => string.Join("\n", _launcher.Apps.Where(_launcher.IsFavorite).Take(5).Select(a => a.Name).DefaultIfEmpty("No pinned apps · favorite apps in quick search")),
+            "Model status" => _config.ActiveProvider == "Local" ? (_engine.ActiveModelPath is null ? "No model loaded" : "Loaded · " + Path.GetFileName(_engine.ActiveModelPath)) : _config.Providers.TryGetValue(_config.ActiveProvider, out var profile) && !string.IsNullOrWhiteSpace(profile.Model) ? _config.ActiveProvider + " · " + profile.Model + " (connection unchecked)" : _config.ActiveProvider + " · choose a model",
+            "Notes" => NoteSummary(),
+            _ => "Unavailable"
+        };
+        HomePage.ShortcutAction = name =>
+        {
+            switch (name)
+            {
+                case "New chat": NewChat_Click(this, new RoutedEventArgs()); break;
+                case "Quick search": case "Pinned apps": ToggleQuickBar(); break;
+                case "Focus timer": ShowNotice(TryPetAction("start a 25 minute timer") ?? "Couldn't start timer."); break;
+                case "New note": ShowNoteEditor(); break;
+            }
+        };
         Application.Current!.Resources["VerityMode"] = _config.VerityMode;
         PromptBox.AddHandler(KeyDownEvent, PromptBox_KeyDown, RoutingStrategies.Tunnel);
         var style = (StackPanel)((ScrollViewer)((TabItem)SettingsControls.Items[5]!).Content!).Content!;
+        var layoutOptions = new[] { "Original", "Modern", "Focus", "Command Center" };
+        var layoutChoice = new ComboBox { ItemsSource = layoutOptions, SelectedItem = layoutOptions.Contains(_config.Layout) ? _config.Layout : "Original" };
+        layoutChoice.SelectionChanged += (_, _) => { _config.Layout = layoutChoice.SelectedItem as string ?? "Original"; ApplyAppearance(); ShowConversation(); SavePreferences(); };
+        var stark = new Button { Content = "Apply Stark-inspired J.A.R.V.I.S. preset" };
+        stark.Click += (_, _) => { _config.Theme = "Stark HUD"; ThemeChoice.SelectedItem = "Stark HUD"; layoutChoice.SelectedItem = "Command Center"; ApplyTheme(); SavePreferences(); };
+        style.Children.Insert(0, new TextBlock { Text = "Layout and appearance", FontSize = 16, FontWeight = FontWeight.SemiBold });
+        style.Children.Insert(1, new TextBlock { Text = "Layout changes the arrangement. Choose a separate color theme below.", TextWrapping = TextWrapping.Wrap, FontSize = 11 });
+        style.Children.Insert(2, layoutChoice); style.Children.Insert(3, stark);
+        var previews = new WrapPanel();
+        foreach (var name in layoutOptions)
+        {
+            var preview = new Button { Content = name + "\n▌  ▬▬▬\n▌  ▬ ▬", Width = 122, Height = 82, Margin = new Thickness(0, 0, 8, 8) };
+            preview.Click += (_, _) => layoutChoice.SelectedItem = name; previews.Children.Add(preview);
+        }
+        style.Children.Insert(4, previews);
+        var dimensions = new StackPanel { Spacing = 8 };
+        void SizeControl(string label, int min, int max, int current, Action<int> set)
+        {
+            dimensions.Children.Add(new TextBlock { Text = label });
+            var value = new NumericUpDown { Minimum = min, Maximum = max, Increment = 10, Value = Math.Clamp(current, min, max) };
+            value.ValueChanged += (_, _) => { set((int)(value.Value ?? min)); ApplyAppearance(); SavePreferences(); }; dimensions.Children.Add(value);
+        }
+        SizeControl("Sidebar width", 180, 400, _config.SidebarWidth, v => _config.SidebarWidth = v);
+        SizeControl("Chat width", 500, 1400, _config.ChatWidth, v => _config.ChatWidth = v);
+        SizeControl("Message spacing", 0, 60, _config.MessageSpacing, v => _config.MessageSpacing = v);
+        dimensions.Children.Add(new TextBlock { Text = "HUD animation intensity" });
+        var intensity = new NumericUpDown { Minimum = 0, Maximum = 2, Increment = .25m, Value = (decimal)Math.Clamp(_config.HudAnimationIntensity, 0, 2) };
+        intensity.ValueChanged += (_, _) => { _config.HudAnimationIntensity = (double)(intensity.Value ?? 1); ApplyAppearance(); SavePreferences(); }; dimensions.Children.Add(intensity);
+        var hideSidebar = new CheckBox { Content = "Hide sidebar (open settings from the top bar)", IsChecked = _config.HideSidebar };
+        hideSidebar.IsCheckedChanged += (_, _) => { _config.HideSidebar = hideSidebar.IsChecked == true; ApplyAppearance(); SavePreferences(); }; dimensions.Children.Add(hideSidebar);
+        style.Children.Insert(5, new Expander { Header = "Layout dimensions", Content = dimensions });
         var glass = new CheckBox { Content = "Desktop glass / blur", IsChecked = _config.GlassEnabled };
         glass.IsCheckedChanged += (_, _) => { _config.GlassEnabled = glass.IsChecked == true; ApplyAppearance(); SavePreferences(); };
-        style.Children.Insert(0, glass);
+        style.Children.Insert(6, glass);
+        var colors = new WrapPanel();
+        foreach (var (label, color) in new[] { ("Cyan", "#43DCEE"), ("Blue", "#75BFFF"), ("Violet", "#C8A3FF"), ("Amber", "#F3BC66"), ("Rose", "#EF8EA8"), ("Lime", "#D5E9A4") })
+        {
+            var preset = new Button { Content = label, Margin = new Thickness(0, 0, 6, 6) };
+            preset.Click += (_, _) => { ThemeChoice.SelectedItem = "Custom"; AccentPicker.Color = Color.Parse(color); }; colors.Children.Add(preset);
+        }
+        var contrast = new CheckBox { Content = "High text contrast", IsChecked = _config.HighTextContrast };
+        contrast.IsCheckedChanged += (_, _) => { _config.HighTextContrast = contrast.IsChecked == true; ApplyTheme(); SavePreferences(); };
+        style.Children.Insert(7, new TextBlock { Text = "Accent presets (custom background below)" }); style.Children.Insert(8, colors); style.Children.Insert(9, contrast);
         var quick = new TextBox { Text = _config.QuickShortcut, Watermark = "Quick bar shortcut" };
         var deck = new TextBox { Text = _config.DeckShortcut, Watermark = "Full deck shortcut" };
         var saveKeys = new Button { Content = "Save shortcuts" };
@@ -72,6 +131,21 @@ public partial class MainWindow
         };
     }
 
+    private string NoteSummary()
+    {
+        try { var folder = Path.Combine(_config.Workspace, "notes"); return !Directory.Exists(folder) ? "No notes yet" : string.Join("\n", Directory.EnumerateFiles(folder, "*.txt").OrderByDescending(File.GetLastWriteTimeUtc).Take(4).Select(Path.GetFileName).DefaultIfEmpty("No notes yet")); }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or ArgumentException) { return "Notes unavailable"; }
+    }
+    private void ShowNoteEditor()
+    {
+        var input = new TextBox { AcceptsReturn = true, TextWrapping = TextWrapping.Wrap, MinHeight = 140, Watermark = "Write your note…" };
+        var status = new TextBlock { TextWrapping = TextWrapping.Wrap };
+        var save = new Button { Content = "Save note" };
+        var window = new Window { Title = "New note", Width = 460, Height = 300, WindowStartupLocation = WindowStartupLocation.CenterOwner, Content = new StackPanel { Spacing = 12, Margin = new Thickness(20), Children = { input, save, status } } };
+        save.Click += (_, _) => { if (string.IsNullOrWhiteSpace(input.Text)) { status.Text = "Write a note first."; return; } var result = TryPetAction("make a note: " + input.Text); if (result?.StartsWith("Saved your note", StringComparison.Ordinal) == true) { window.Close(); ShowNotice(result); } else status.Text = result ?? "Could not save the note."; };
+        window.Show(this); input.Focus();
+    }
+
     private void ApplyAppearance()
     {
         if (_config.VerityMode) ThemeManager.Apply("Custom", "#FFD447", "#201C10");
@@ -95,6 +169,39 @@ public partial class MainWindow
         r["ButtonPadding"] = new Thickness(terminal ? 9 : 14, terminal ? 6 : 10);
         ThemeManager.ApplyFont(terminal ? "Cascadia Mono,Consolas" : _config.FontFamily);
         if (solid) r["PanelBrush"] = new SolidColorBrush(Color.FromArgb(70, 0, 0, 0));
+        if (_config.HighTextContrast) { r["TextBrush"] = Brushes.White; r["MutedBrush"] = new SolidColorBrush(Color.Parse("#E0E5E7")); r["SecondaryBrush"] = r["MutedBrush"]; }
+        ApplyDeckLayout();
+    }
+
+    private void ApplyDeckLayout()
+    {
+        var layout = _config.Layout;
+        HomePage.ApplyLayout(layout);
+        DeckSidebar.IsVisible = !_config.HideSidebar;
+        if (layout == "Original") { ChatComposer.MaxWidth = 900; ChatArea.Margin = new Thickness(26, 0); PromptDropZone.CornerRadius = new CornerRadius(14); DeckHeader.Padding = new Thickness(24, 10); ExpandedView.CornerRadius = new CornerRadius(24); DeckLayout.ColumnDefinitions[0].Width = new GridLength(_config.HideSidebar ? 0 : Math.Clamp(_config.SidebarWidth, 180, 400)); ChatLog.MaxWidth = ChatComposer.MaxWidth = Math.Clamp(_config.ChatWidth, 500, 1400); ChatLog.Spacing = Math.Clamp(_config.MessageSpacing, 0, 60); return; }
+        DeckLayout.ColumnDefinitions[0].Width = new GridLength(layout switch { "Modern" => 280, "Focus" => 210, "Command Center" => 256, _ => 240 });
+        ChatLog.MaxWidth = layout switch { "Modern" => 800, "Focus" => 680, "Command Center" => 1040, _ => 900 };
+        ChatComposer.MaxWidth = ChatLog.MaxWidth;
+        ChatLog.Spacing = layout == "Command Center" ? 12 : 28;
+        ChatArea.Margin = new Thickness(layout == "Focus" ? 44 : 26, 0);
+        DeckHeader.Padding = new Thickness(layout == "Modern" ? 24 : 18, 8);
+        ExpandedView.CornerRadius = new CornerRadius(layout == "Command Center" ? 8 : 14);
+        PromptDropZone.CornerRadius = new CornerRadius(layout == "Modern" ? 22 : layout == "Command Center" ? 6 : 14);
+        DeckLayout.ColumnDefinitions[0].Width = new GridLength(_config.HideSidebar ? 0 : Math.Clamp(_config.SidebarWidth, 180, 400));
+        ChatLog.MaxWidth = ChatComposer.MaxWidth = Math.Clamp(_config.ChatWidth, 500, 1400);
+        ChatLog.Spacing = Math.Clamp(_config.MessageSpacing, 0, 60);
+    }
+
+    internal void CheckLayoutSizing()
+    {
+        foreach (var layout in new[] { "Original", "Modern", "Focus", "Command Center" })
+        foreach (var glass in new[] { false, true })
+        foreach (var size in new[] { new Size(800, 600), new Size(1280, 800), new Size(1920, 1080) })
+        {
+            _config.Layout = layout; _config.GlassEnabled = glass; ApplyAppearance();
+            HomePage.Measure(size); HomePage.Arrange(new Rect(size));
+            if (!double.IsFinite(HomePage.Bounds.Width) || HomePage.Bounds.Width <= 0) throw new InvalidOperationException("Home layout failed for " + layout);
+        }
     }
 
 }
