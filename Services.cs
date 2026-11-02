@@ -195,22 +195,30 @@ public sealed class SecureConfigStore
 public interface ICloudAdapter
 {
     Task<string> CompleteAsync(ProviderProfile profile, string system, string prompt, int maxTokens, CancellationToken token);
+    Task<string> CompleteChatAsync(ProviderProfile profile, string system, IReadOnlyList<ChatTurn> history, string prompt, int maxTokens, CancellationToken token, Action<string>? progress = null);
 }
 public class OpenAiAdapter : ICloudAdapter
 {
     protected static readonly HttpClient Client = new(new HttpClientHandler { AllowAutoRedirect = false }) { Timeout = TimeSpan.FromMinutes(2) };
-    public virtual async Task<string> CompleteAsync(ProviderProfile profile, string system, string prompt, int maxTokens, CancellationToken token)
+    public Task<string> CompleteAsync(ProviderProfile profile, string system, string prompt, int maxTokens, CancellationToken token) => CompleteChatAsync(profile, system, Array.Empty<ChatTurn>(), prompt, maxTokens, token);
+    public virtual async Task<string> CompleteChatAsync(ProviderProfile profile, string system, IReadOnlyList<ChatTurn> history, string prompt, int maxTokens, CancellationToken token, Action<string>? progress = null)
     {
-        var url = profile.BaseUrl.TrimEnd('/');
-        if (!url.EndsWith("/chat/completions")) url += "/chat/completions";
-        Validate(url);
+        var url = Endpoint(profile.BaseUrl, "/chat/completions");
         using var request = new HttpRequestMessage(HttpMethod.Post, url);
         if (!string.IsNullOrWhiteSpace(profile.ApiKey)) request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", profile.ApiKey);
-        request.Content = JsonContent.Create(new { model = profile.Model, messages = new[] { new { role = "system", content = system }, new { role = "user", content = prompt } }, max_tokens = maxTokens, stream = false });
+        var messages = new List<object> { new { role = "system", content = system } };
+        foreach (var turn in history) { messages.Add(new { role = "user", content = turn.ModelUserContent ?? turn.User }); messages.Add(new { role = "assistant", content = turn.Assistant }); }
+        messages.Add(new { role = "user", content = prompt });
+        request.Content = JsonContent.Create(new { model = profile.Model, messages, max_tokens = maxTokens, stream = progress is not null });
         using var response = await Client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
-        if (!response.IsSuccessStatusCode) throw new InvalidOperationException($"Provider returned HTTP {(int)response.StatusCode}. Check the endpoint, key, and model.");
+        if (!response.IsSuccessStatusCode)
+        {
+            if (progress is not null && await CloudStreaming.UnsupportedAsync(response, token)) return await CompleteChatAsync(profile, system, history, prompt, maxTokens, token);
+            throw new InvalidOperationException($"Provider returned HTTP {(int)response.StatusCode}. Check the endpoint, key, and model.");
+        }
+        if (progress is not null) return await CloudStreaming.ReadAsync(response, false, progress, token);
         using var document = JsonDocument.Parse(await HttpPayload.ReadTextAsync(response, 4_000_000, token));
-        return document.RootElement.GetProperty("choices")[0].GetProperty("message").GetProperty("content").GetString() ?? "";
+        return CloudStreaming.Extract(document.RootElement, false, false);
     }
     protected static void Validate(string url)
     {
@@ -218,23 +226,44 @@ public class OpenAiAdapter : ICloudAdapter
         if (uri.Scheme != "https" && !(uri.Scheme == "http" && uri.IsLoopback)) throw new InvalidOperationException("Use HTTPS for cloud endpoints, or HTTP for localhost.");
         if (!string.IsNullOrEmpty(uri.UserInfo)) throw new InvalidOperationException("Put credentials in the API key field.");
     }
+    protected static string Endpoint(string baseUrl, string suffix, bool appendAlways = false, string? query = null)
+    {
+        if (!Uri.TryCreate(baseUrl?.Trim(), UriKind.Absolute, out var uri)) throw new InvalidOperationException("Enter a valid provider base URL.");
+        Validate(uri.AbsoluteUri);
+        var builder = new UriBuilder(uri);
+        var path = builder.Path.TrimEnd('/');
+        if (appendAlways || !path.EndsWith(suffix, StringComparison.OrdinalIgnoreCase)) path += suffix;
+        builder.Path = path;
+        if (!string.IsNullOrEmpty(query)) builder.Query = string.IsNullOrEmpty(builder.Query) ? query : builder.Query.TrimStart('?') + "&" + query;
+        return builder.Uri.AbsoluteUri;
+    }
 }
 public sealed class NvidiaNimAdapter : OpenAiAdapter { }
 public sealed class GroqAdapter : OpenAiAdapter { }
 public sealed class OpenRouterAdapter : OpenAiAdapter { }
 public sealed class GeminiAdapter : OpenAiAdapter
 {
-    public override async Task<string> CompleteAsync(ProviderProfile profile, string system, string prompt, int maxTokens, CancellationToken token)
+    public override async Task<string> CompleteChatAsync(ProviderProfile profile, string system, IReadOnlyList<ChatTurn> history, string prompt, int maxTokens, CancellationToken token, Action<string>? progress = null)
     {
-        var url = profile.BaseUrl.TrimEnd('/') + "/models/" + Uri.EscapeDataString(profile.Model) + ":generateContent";
-        Validate(url);
+        var model = profile.Model.Trim();
+        if (model.StartsWith("models/", StringComparison.OrdinalIgnoreCase)) model = model[7..];
+        if (string.IsNullOrWhiteSpace(model) || model.Contains('/')) throw new InvalidOperationException("Enter a Gemini model ID, such as gemini-2.5-flash.");
+        var url = Endpoint(profile.BaseUrl, "/models/" + Uri.EscapeDataString(model) + (progress is null ? ":generateContent" : ":streamGenerateContent"), true, progress is null ? null : "alt=sse");
         using var request = new HttpRequestMessage(HttpMethod.Post, url);
         request.Headers.Add("x-goog-api-key", profile.ApiKey);
-        request.Content = JsonContent.Create(new { systemInstruction = new { parts = new[] { new { text = system } } }, contents = new[] { new { role = "user", parts = new[] { new { text = prompt } } } }, generationConfig = new { maxOutputTokens = maxTokens } });
+        var contents = new List<object>();
+        foreach (var turn in history) { contents.Add(new { role = "user", parts = new[] { new { text = turn.ModelUserContent ?? turn.User } } }); contents.Add(new { role = "model", parts = new[] { new { text = turn.Assistant } } }); }
+        contents.Add(new { role = "user", parts = new[] { new { text = prompt } } });
+        request.Content = JsonContent.Create(new { systemInstruction = new { parts = new[] { new { text = system } } }, contents, generationConfig = new { maxOutputTokens = maxTokens } });
         using var response = await Client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, token);
-        if (!response.IsSuccessStatusCode) throw new InvalidOperationException($"Gemini returned HTTP {(int)response.StatusCode}. Check credentials and model.");
+        if (!response.IsSuccessStatusCode)
+        {
+            if (progress is not null && await CloudStreaming.UnsupportedAsync(response, token)) return await CompleteChatAsync(profile, system, history, prompt, maxTokens, token);
+            throw new InvalidOperationException($"Gemini returned HTTP {(int)response.StatusCode}. Check credentials and model.");
+        }
+        if (progress is not null) return await CloudStreaming.ReadAsync(response, true, progress, token);
         using var doc = JsonDocument.Parse(await HttpPayload.ReadTextAsync(response, 4_000_000, token));
-        return string.Concat(doc.RootElement.GetProperty("candidates")[0].GetProperty("content").GetProperty("parts").EnumerateArray().Where(p => p.TryGetProperty("text", out _)).Select(p => p.GetProperty("text").GetString()));
+        return CloudStreaming.Extract(doc.RootElement, true, false);
     }
 }
 public sealed class ProviderRouter
@@ -245,5 +274,11 @@ public sealed class ProviderRouter
         var profile = config.Providers[config.ActiveProvider];
         if (string.IsNullOrWhiteSpace(profile.Model)) throw new InvalidOperationException("Enter a cloud model ID in Settings.");
         return _adapters[config.ActiveProvider].CompleteAsync(profile, system, prompt, maxTokens, token);
+    }
+    public Task<string> CompleteChatAsync(AppConfig config, string system, IReadOnlyList<ChatTurn> history, string prompt, int maxTokens, CancellationToken token, Action<string>? progress = null)
+    {
+        var profile = config.Providers[config.ActiveProvider];
+        if (string.IsNullOrWhiteSpace(profile.Model)) throw new InvalidOperationException("Enter a cloud model ID in Settings.");
+        return _adapters[config.ActiveProvider].CompleteChatAsync(profile, system, history, prompt, maxTokens, token, progress);
     }
 }

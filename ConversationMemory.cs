@@ -2,7 +2,7 @@ using System.Text.Json;
 
 namespace JARVIS;
 
-public sealed record ChatTurn(string User, string Assistant, List<string>? Images = null);
+public sealed record ChatTurn(string User, string Assistant, List<string>? Images = null, string? ModelUserContent = null);
 public sealed record ChatInfo(string Id, string Title, bool IsPinned, string SearchText)
 {
     public string PinGlyph => IsPinned ? "★" : "☆";
@@ -31,21 +31,43 @@ public sealed class ConversationMemory
     }
 
     private SavedState _state;
-    private readonly List<ChatTurn> _transientTurns = new();
+    private sealed record TransientTurn(int AfterSavedCount, ChatTurn Turn);
+    private readonly Dictionary<string, List<TransientTurn>> _transientTurns = new();
+    private readonly Dictionary<string, (int Count, string Summary)> _transientSummaries = new();
     private readonly Library _library;
     public IReadOnlyList<ChatInfo> Chats => _library.Chats
         .OrderByDescending(c => c.IsPinned).ThenByDescending(c => c.UpdatedAt)
-        .Select(c => new ChatInfo(c.Id, c.Title, c.IsPinned,
-            c.Title + "\n" + string.Join("\n", c.Turns.SelectMany(t => new[] { t.User, t.Assistant })) +
-            (c.Id == _state.Id ? "\n" + string.Join("\n", _transientTurns.SelectMany(t => new[] { t.User, t.Assistant })) : "")))
+        .Select(c => new ChatInfo(c.Id, DisplayTitle(c), c.IsPinned,
+            DisplayTitle(c) + "\n" + string.Join("\n", OrderedTurns(c, 0).SelectMany(t => new[] { t.User, t.Assistant }))))
         .ToArray();
     public string ActiveId => _state.Id;
     public string FilePath { get; }
     public string? RecoveryNotice { get; }
-    public IReadOnlyList<ChatTurn> SessionTurns => _transientTurns.ToArray();
+    public IReadOnlyList<ChatTurn> SessionTurns => _transientTurns.TryGetValue(_state.Id, out var turns) ? turns.Skip(_transientSummaries.GetValueOrDefault(_state.Id).Count).Select(t => t.Turn).ToArray() : Array.Empty<ChatTurn>();
+    public string SessionSummary => _transientSummaries.TryGetValue(_state.Id, out var value) ? value.Summary : "";
     public string Summary => _state.Summary;
     public int CompactedCount => _state.CompactedCount;
-    public IReadOnlyList<ChatTurn> Turns => _state.Turns.Concat(_transientTurns).ToArray();
+    public IReadOnlyList<ChatTurn> Turns => OrderedTurns(_state, 0).ToArray();
+    public IReadOnlyList<ChatTurn> ContextTurns => OrderedTurns(_state, _state.CompactedCount, _transientSummaries.GetValueOrDefault(_state.Id).Count).ToArray();
+
+    private string DisplayTitle(SavedState state)
+    {
+        if (state.Title != "New chat" || !_transientTurns.TryGetValue(state.Id, out var turns) || turns.Count == 0) return state.Title;
+        var title = turns[0].Turn.User.Trim().Replace('\r', ' ').Replace('\n', ' ');
+        return title.Length > 32 ? title[..32] + "…" : title.Length == 0 ? "New chat" : title;
+    }
+
+    private IEnumerable<ChatTurn> OrderedTurns(SavedState state, int skipSaved, int skipTransient = 0)
+    {
+        _transientTurns.TryGetValue(state.Id, out var transient);
+        var position = 0;
+        for (var i = 0; i <= state.Turns.Count; i++)
+        {
+            while (transient is not null && position < transient.Count && transient[position].AfterSavedCount == i)
+            { if (position >= skipTransient) yield return transient[position].Turn; position++; }
+            if (i < state.Turns.Count && i >= skipSaved) yield return state.Turns[i];
+        }
+    }
 
     public ConversationMemory(string? directory = null)
     {
@@ -74,18 +96,22 @@ public sealed class ConversationMemory
         _state = _library.Chats.FirstOrDefault(c => c.Id == _library.ActiveId) ?? _library.Chats[0];
     }
 
-    public void Add(string user, string assistant, IReadOnlyList<string>? images = null, bool persist = true)
+    public void Add(string user, string assistant, IReadOnlyList<string>? images = null, bool persist = true, string? modelUserContent = null)
     {
-        if (!persist) { _transientTurns.Add(new ChatTurn(user, assistant, images?.ToList())); return; }
+        if (!persist)
+        {
+            if (!_transientTurns.TryGetValue(_state.Id, out var transient)) _transientTurns[_state.Id] = transient = new();
+            transient.Add(new TransientTurn(_state.Turns.Count, new ChatTurn(user, assistant, images?.ToList(), modelUserContent)));
+            return;
+        }
         if (_state.Turns.Count == 0 && _state.Title == "New chat") _state.Title = user.Length > 32 ? user[..32] + "…" : user;
-        _state.Turns.Add(new ChatTurn(user, assistant, images?.ToList()));
+        _state.Turns.Add(new ChatTurn(user, assistant, images?.ToList(), modelUserContent));
         _state.UpdatedAt = DateTime.UtcNow;
         Save();
     }
 
     public void NewChat()
     {
-        _transientTurns.Clear();
         _state = new SavedState();
         _library.Chats.Insert(0, _state);
         Save();
@@ -93,7 +119,6 @@ public sealed class ConversationMemory
 
     public void SelectChat(string id)
     {
-        _transientTurns.Clear();
         _state = _library.Chats.First(c => c.Id == id);
         _state.UpdatedAt = DateTime.UtcNow;
         Save();
@@ -119,9 +144,10 @@ public sealed class ConversationMemory
     {
         var chat = _library.Chats.First(c => c.Id == id);
         _library.Chats.Remove(chat);
+        _transientTurns.Remove(id);
+        _transientSummaries.Remove(id);
         if (_state.Id == id)
         {
-            _transientTurns.Clear();
             if (_library.Chats.Count == 0) _library.Chats.Add(new SavedState());
             _state = _library.Chats[0];
         }
@@ -133,8 +159,8 @@ public sealed class ConversationMemory
     public string ExportMarkdown(string id)
     {
         var chat = _library.Chats.First(c => c.Id == id);
-        var output = new System.Text.StringBuilder("# ").AppendLine(chat.Title).AppendLine();
-        foreach (var turn in chat.Turns.Concat(chat.Id == _state.Id ? _transientTurns.AsEnumerable() : Array.Empty<ChatTurn>()))
+        var output = new System.Text.StringBuilder("# ").AppendLine(DisplayTitle(chat)).AppendLine();
+        foreach (var turn in OrderedTurns(chat, 0))
         {
             output.AppendLine("## You").AppendLine().AppendLine(turn.User).AppendLine();
             output.AppendLine("## J.A.R.V.I.S.").AppendLine().AppendLine(turn.Assistant).AppendLine();
@@ -147,8 +173,9 @@ public sealed class ConversationMemory
 
     public int ClearAllDetails()
     {
-        var count = _library.Chats.Sum(chat => chat.Turns.Count) + _transientTurns.Count;
+        var count = _library.Chats.Sum(chat => chat.Turns.Count) + _transientTurns.Values.Sum(turns => turns.Count);
         _transientTurns.Clear();
+        _transientSummaries.Clear();
         foreach (var chat in _library.Chats)
         {
             chat.Turns.Clear();
@@ -175,6 +202,12 @@ public sealed class ConversationMemory
         _state.CompactedCount += count;
         _state.Summary = summary.Trim();
         Save();
+    }
+
+    public void CompactSession(int count, string summary)
+    {
+        if (count <= 0 || count > SessionTurns.Count) throw new ArgumentOutOfRangeException(nameof(count));
+        _transientSummaries[_state.Id] = (_transientSummaries.GetValueOrDefault(_state.Id).Count + count, summary.Trim());
     }
 
     public IReadOnlyList<ChatTurn> ActiveTurns => _state.Turns.Skip(_state.CompactedCount).ToArray();

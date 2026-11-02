@@ -15,6 +15,7 @@ public partial class MainWindow
 {
     private TrayIcon? _tray;
     private readonly DispatcherTimer _draftSaveTimer = new() { Interval = TimeSpan.FromMilliseconds(700) };
+    private readonly HashSet<string> _privateDraftIds = new();
     private bool _closing;
     private void InitializeShell(bool interactive)
     {
@@ -55,12 +56,34 @@ public partial class MainWindow
     private void SaveDraft()
     {
         var text = PromptBox.Text ?? "";
-        if (string.IsNullOrWhiteSpace(text)) _drafts.Remove(_engine.ActiveChatId);
-        else _drafts[_engine.ActiveChatId] = text[..Math.Min(text.Length, 20000)];
+        if (string.IsNullOrWhiteSpace(text)) { _drafts.Remove(_engine.ActiveChatId); _privateDraftIds.Remove(_engine.ActiveChatId); }
+        else { _drafts[_engine.ActiveChatId] = text[..Math.Min(text.Length, 20000)]; if (!_config.MemoryEnabled) _privateDraftIds.Add(_engine.ActiveChatId); }
         if (!_config.MemoryEnabled) return;
         var validIds = _engine.Chats.Select(chat => chat.Id).ToHashSet();
-        _config.Drafts = _drafts.Where(pair => validIds.Contains(pair.Key) && !string.IsNullOrWhiteSpace(pair.Value)).TakeLast(20).ToDictionary(pair => pair.Key, pair => pair.Value);
+        _config.Drafts = _drafts.Where(pair => validIds.Contains(pair.Key) && !_privateDraftIds.Contains(pair.Key) && !string.IsNullOrWhiteSpace(pair.Value)).TakeLast(20).ToDictionary(pair => pair.Key, pair => pair.Value);
         SavePreferences();
+    }
+    internal void CheckPrivateDrafts()
+    {
+        MemoryCheck.IsChecked = false;
+        var first = _engine.ActiveChatId;
+        PromptBox.Text = "private draft should not be saved"; SaveDraft();
+        _engine.NewChat(); PromptBox.Text = "another private draft"; SaveDraft();
+        MemoryCheck.IsChecked = true;
+        _engine.SelectChat(first); PromptBox.Text = _drafts.GetValueOrDefault(first, ""); SaveDraft();
+        if (PromptBox.Text != "private draft should not be saved" || _store.Load().Drafts.Values.Any(text => text.Contains("private draft")))
+            throw new InvalidOperationException("Private drafts were lost or persisted after memory resumed.");
+        _draftSaveTimer.Stop();
+    }
+    internal void CheckComposerKeys()
+    {
+        PromptBox.Text = "";
+        var enter = new KeyEventArgs { RoutedEvent = KeyDownEvent, Key = Key.Enter };
+        PromptBox.RaiseEvent(enter);
+        if (!enter.Handled || !string.IsNullOrEmpty(PromptBox.Text)) throw new InvalidOperationException("Enter did not trigger the composer send handler.");
+        var shifted = new KeyEventArgs { RoutedEvent = KeyDownEvent, Key = Key.Enter, KeyModifiers = KeyModifiers.Shift };
+        PromptBox_KeyDown(PromptBox, shifted);
+        if (shifted.Handled) throw new InvalidOperationException("Shift+Enter was blocked by the send handler.");
     }
     private void Shell_KeyDown(object? sender, KeyEventArgs e)
     {
@@ -108,7 +131,7 @@ public partial class MainWindow
         if (!await ConfirmAsync("Delete this conversation?", $"Delete ‘{title}’ and its messages? Export it first if you want to keep a copy. Generated image files stay in your workspace.", "Delete conversation")) return;
         try
         {
-            _engine.DeleteChat(id); _drafts.Remove(id); _config.Drafts.Remove(id); _attachments.Clear(); UpdateAttachmentStatus();
+            _engine.DeleteChat(id); _drafts.Remove(id); _privateDraftIds.Remove(id); _config.Drafts.Remove(id); _attachments.Clear(); UpdateAttachmentStatus();
             PromptBox.Text = _drafts.GetValueOrDefault(_engine.ActiveChatId, ""); SavePreferences(); _store.ForgetPreviousVersion();
             RefreshChats(); ShowConversation(); RefreshHome(); StatusText.Text = "Conversation deleted";
         }

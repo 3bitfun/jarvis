@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 1.3.7 — 2026-11-02
+
+- Fixed multi-turn chat roles for local and cloud models, and added cloud response streaming.
+- Preserved private session chats across navigation and added private context compaction.
+- Fixed attachment isolation, retries, empty and interrupted responses, model switching feedback, and shortcut selection.
+- Added regression checks for chat, privacy, streaming, cancellation, and model switching.
+
 ## 1.3.6 — 2026-11-02
 
 - Added Original, Modern, Focus and Command Center layouts, sizing controls, accent presets and Stark-inspired HUD colors.

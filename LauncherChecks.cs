@@ -9,6 +9,8 @@ internal static class LauncherChecks
         for (var i = 0; i < 5; i++)
             if (MiniLauncherWindow.ShortcutIndex(keys[i]) != i || MiniLauncherWindow.ShortcutIndex(pad[i]) != i) throw new Exception("Shortcut mapping failed.");
         if (MiniLauncherWindow.ShortcutIndex(Key.D6) != -1) throw new Exception("Unexpected shortcut mapping.");
+        var visible = new[] { new LauncherResult(new LaunchableApp("Assigned", "assigned"), 3), new LauncherResult(new LaunchableApp("Other", "other"), 2) };
+        if (MiniLauncherWindow.VisibleShortcutResult(visible, 0) is not null || MiniLauncherWindow.VisibleShortcutResult(visible, 1)?.App.Name != "Other") throw new Exception("Visible shortcut did not match its displayed number.");
         if (AppLauncher.MatchScore("Google Chrome", "gch") <= 0 || AppLauncher.MatchScore("Google Chrome", "Chrome") <= AppLauncher.MatchScore("Google Chrome", "gch")) throw new Exception("Search ranking failed.");
         if (PetQuickAction.Parse("start a focus timer for 25 minutes") is not { Kind: PetActionKind.Timer, Minutes: 25 } ||
             PetQuickAction.Parse("start timer for 0 minutes") is not { Kind: PetActionKind.Invalid } ||

@@ -33,6 +33,8 @@ internal static class Program
             BuildAvaloniaApp().SetupWithoutStarting();
             var main = new MainWindow(false);
             main.CheckLayoutSizing();
+            main.CheckPrivateDrafts();
+            main.CheckComposerKeys();
             using var markdown = new MarkdownChat();
             var link = (StackPanel)markdown.Render("[Documentation](https://example.org/docs)");
             if (link.Children.OfType<TextBlock>().Single().Inlines!.OfType<Avalonia.Controls.Documents.InlineUIContainer>().Count() != 1) throw new InvalidOperationException("Markdown links are not rendered as native clickable links.");
@@ -79,9 +81,42 @@ internal static class Program
             using var engine = new LLamaEngine(Path.Combine(Path.GetTempPath(), "JARVIS-check-" + Guid.NewGuid().ToString("N")));
             engine.SwitchModel(args[1]);
             Console.WriteLine("Model loaded successfully.");
-            Console.WriteLine(engine.GenerateAsync("Reply with a brief greeting.").GetAwaiter().GetResult());
+            var firstReply = engine.GenerateAsync("For this conversation, remember that my favorite color is teal. Reply briefly.").GetAwaiter().GetResult();
+            if (string.IsNullOrWhiteSpace(firstReply)) throw new InvalidOperationException("The local model returned an empty reply.");
+            Console.WriteLine(firstReply);
             engine.Config.DeliberateMode = false; // Verify preferences can change without reloading weights.
-            Console.WriteLine(engine.GenerateAsync("What did I just ask you to do?").GetAwaiter().GetResult());
+            var followUp = engine.GenerateAsync("What is my favorite color? Answer with only the color.").GetAwaiter().GetResult();
+            if (string.IsNullOrWhiteSpace(followUp)) throw new InvalidOperationException("The local model returned an empty follow-up.");
+            Console.WriteLine(followUp);
+            using (var stop = new CancellationTokenSource())
+            {
+                try { engine.GenerateAsync("Write a long numbered list of animals.", stop.Token, progress: _ => stop.Cancel()).GetAwaiter().GetResult(); }
+                catch (OperationCanceledException) { }
+                if (!stop.IsCancellationRequested) throw new InvalidOperationException("No streaming output was received before cancellation.");
+            }
+            var afterStop = engine.GenerateAsync("Reply briefly with OK.").GetAwaiter().GetResult();
+            if (string.IsNullOrWhiteSpace(afterStop)) throw new InvalidOperationException("The local model did not recover after cancellation.");
+            var loadedPath = engine.ActiveModelPath;
+            try { engine.SwitchModel(Path.Combine(Path.GetTempPath(), "missing-" + Guid.NewGuid().ToString("N") + ".gguf")); throw new InvalidOperationException("A missing model was accepted."); }
+            catch (FileNotFoundException) { }
+            if (engine.ActiveModelPath != loadedPath) throw new InvalidOperationException("A missing model selection unloaded the working model.");
+            Console.WriteLine("Cancellation and a subsequent reply succeeded.");
+            return;
+        }
+        if (args.Length == 3 && args[0] == "--check-switch-model")
+        {
+            using var engine = new LLamaEngine(Path.Combine(Path.GetTempPath(), "JARVIS-switch-check-" + Guid.NewGuid().ToString("N")));
+            engine.Config.MemoryEnabled = false; engine.Config.ResponseMode = "Instant";
+            engine.SwitchModel(args[1]);
+            var first = engine.GenerateAsync("Remember my favorite color is teal. Reply briefly.").GetAwaiter().GetResult();
+            engine.SwitchModel(args[2]);
+            var second = engine.GenerateAsync("What is my favorite color? Reply with the color.").GetAwaiter().GetResult();
+            engine.SwitchModel(args[1]);
+            var third = engine.GenerateAsync("Reply briefly with OK.").GetAwaiter().GetResult();
+            if (new[] { first, second, third }.Any(string.IsNullOrWhiteSpace) || engine.Conversation.Count != 3)
+                throw new InvalidOperationException("Chat failed across model switches.");
+            Console.WriteLine("Model switching, conversation continuity, and switching back succeeded.");
+            Console.WriteLine("Follow-up reply: " + second);
             return;
         }
 

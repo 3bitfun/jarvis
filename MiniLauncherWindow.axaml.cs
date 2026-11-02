@@ -159,6 +159,7 @@ public partial class MiniLauncherWindow : Window
         Key.D1 or Key.NumPad1 => 0, Key.D2 or Key.NumPad2 => 1, Key.D3 or Key.NumPad3 => 2,
         Key.D4 or Key.NumPad4 => 3, Key.D5 or Key.NumPad5 => 4, _ => -1
     };
+    internal static LauncherResult? VisibleShortcutResult(IEnumerable<LauncherResult> results, int index) => results.FirstOrDefault(result => result.Number == index + 1);
     private async void HandleKeyDown(object? sender, KeyEventArgs e)
     {
         if (e.Key == Key.Escape)
@@ -179,7 +180,7 @@ public partial class MiniLauncherWindow : Window
                     if (_launcher.GetShortcut(index) is { } pinnedApp) Launch(pinnedApp);
                     else Status.Text = $"Alt+{index + 1} is assigned to an app that is no longer installed. Update it in Settings → Apps.";
                 }
-                else if (Results.IsVisible && index < _visible.Length) Launch(_visible[index].App);
+                else if (Results.IsVisible && VisibleShortcutResult(_visible, index) is { } visible) Launch(visible.App);
             }
             return;
         }

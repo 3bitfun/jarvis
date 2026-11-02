@@ -13,4 +13,6 @@ Notes use unique file names so existing files are not overwritten. The pet repor
 
 Choose the pet's appearance, bubble background, size, motion, and visibility in **Settings → Style → Pet Studio**. Bubbles support Markdown and follow the pet when it moves. The Reply button continues the current chat; Open conversation opens the same chat in the full deck.
 
-Local responses stream when file, image and MCP tool processing are inactive. Cloud and tool-enabled responses appear when complete. The Stop button cancels generation; a partial streamed response remains visible but is not saved as a completed conversation turn.
+Local responses and supported cloud responses stream into the bubble. Structured tool requests are held back until the app has processed them. Some compatible endpoints do not support streaming; if the endpoint explicitly reports this, the app retries without streaming. The Stop button cancels generation; a partial streamed response remains visible but is not saved as a completed conversation turn.
+
+When memory is paused, messages and drafts remain in the current app session, including when you switch chats. They are not added to the saved chat archive. Closing the app clears those session-only messages.
