@@ -1,4 +1,6 @@
 using Avalonia.Interactivity;
+using Avalonia.Controls;
+using Avalonia.Media;
 using System.Diagnostics;
 
 namespace JARVIS;
@@ -10,9 +12,29 @@ public partial class MainWindow
     private CancellationTokenSource? _modelDownloadCancellation;
     private CancellationTokenSource? _updateCancellation;
     private AvailableUpdate? _availableUpdate;
+    private string? _verifiedInstaller;
+    private TextBlock? _releaseNotes;
+    private Button? _cancelUpdate;
+    private Button? _runUpdate;
 
     private void InitializeDownloads()
     {
+        var updatePanel = (StackPanel)UpdateStatus.Parent!;
+        _releaseNotes = new TextBlock { TextWrapping = TextWrapping.Wrap, IsVisible = false, MaxHeight = 240 };
+        updatePanel.Children.Add(new ScrollViewer { MaxHeight = 240, Content = _releaseNotes });
+        _cancelUpdate = new Button { Content = "Cancel update download", IsVisible = false };
+        _cancelUpdate.Click += (_, _) => _updateCancellation?.Cancel(); updatePanel.Children.Add(_cancelUpdate);
+        _runUpdate = new Button { Content = "Install verified update", IsVisible = false };
+        _runUpdate.Click += async (_, _) =>
+        {
+            if (_busy || _verifiedInstaller is null || _availableUpdate is null) { UpdateStatus.Text = "Finish the current request before installing."; return; }
+            _runUpdate.IsEnabled = false;
+            try { if (!await AppUpdateService.MatchesAsync(_verifiedInstaller, _availableUpdate, CancellationToken.None)) { UpdateStatus.Text = "Installer verification failed. Download the update again."; _runUpdate.IsVisible = false; return; } Process.Start(new ProcessStartInfo(_verifiedInstaller) { UseShellExecute = true }); Close(); }
+            catch (Exception ex) { UpdateStatus.Text = "Could not open installer: " + ex.Message; }
+            finally { _runUpdate.IsEnabled = true; }
+        };
+        updatePanel.Children.Add(_runUpdate);
+        InstallUpdateButton.Content = "Download update";
         CuratedModelChoice.ItemsSource = ModelDownloadService.Curated;
         CuratedModelChoice.SelectionChanged += (_, _) =>
         {
@@ -74,6 +96,8 @@ public partial class MainWindow
         CheckUpdateButton.IsEnabled = false;
         InstallUpdateButton.IsVisible = false;
         _availableUpdate = null;
+        _verifiedInstaller = null; if (_runUpdate is not null) _runUpdate.IsVisible = false;
+        if (_releaseNotes is not null) _releaseNotes.IsVisible = false;
         UpdateStatus.Text = "Checking published releases…";
         try
         {
@@ -86,6 +110,7 @@ public partial class MainWindow
             {
                 UpdateStatus.Text = $"Version {update.Version} is available ({update.Bytes / 1_000_000.0:0.0} MB). The installer will be verified before it runs.";
                 InstallUpdateButton.IsVisible = true;
+                if (_releaseNotes is not null) { _releaseNotes.Text = "Release notes\n\n" + (string.IsNullOrWhiteSpace(update.Notes) ? "No release notes provided." : update.Notes); _releaseNotes.IsVisible = true; }
             }
         }
         catch (OperationCanceledException) { if (!_closing) UpdateStatus.Text = "Update check cancelled."; }
@@ -101,6 +126,7 @@ public partial class MainWindow
         CheckUpdateButton.IsEnabled = false;
         InstallUpdateButton.IsEnabled = false;
         UpdateProgress.IsVisible = true;
+        if (_cancelUpdate is not null) _cancelUpdate.IsVisible = true;
         UpdateStatus.Text = "Downloading installer…";
         try
         {
@@ -112,16 +138,16 @@ public partial class MainWindow
             });
             var installer = await _updater.DownloadAsync(update, progress, cancellation.Token);
             if (_closing) return;
-            UpdateStatus.Text = "Verified installer. Opening setup…";
-            Process.Start(new ProcessStartInfo(installer) { UseShellExecute = true });
-            Close();
+            _verifiedInstaller = installer;
+            UpdateStatus.Text = "Download verified. Install when you are ready.";
+            if (_runUpdate is not null) _runUpdate.IsVisible = true;
         }
         catch (OperationCanceledException) { if (!_closing) UpdateStatus.Text = "Update download cancelled."; }
         catch (Exception ex) { if (!_closing) UpdateStatus.Text = "Update failed: " + ex.Message; }
         finally
         {
             _updateCancellation = null;
-            if (!_closing) { CheckUpdateButton.IsEnabled = true; InstallUpdateButton.IsEnabled = true; UpdateProgress.IsVisible = false; }
+            if (!_closing) { CheckUpdateButton.IsEnabled = true; InstallUpdateButton.IsEnabled = true; UpdateProgress.IsVisible = false; if (_cancelUpdate is not null) _cancelUpdate.IsVisible = false; }
         }
     }
 }

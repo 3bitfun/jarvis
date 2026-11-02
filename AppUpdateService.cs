@@ -88,7 +88,7 @@ public sealed class AppUpdateService
         finally { try { if (File.Exists(temporary)) File.Delete(temporary); } catch (IOException) { } }
     }
 
-    private static async Task<bool> MatchesAsync(string path, AvailableUpdate update, CancellationToken token)
+    public static async Task<bool> MatchesAsync(string path, AvailableUpdate update, CancellationToken token)
     {
         if (new FileInfo(path).Length != update.Bytes) return false;
         await using var stream = File.OpenRead(path);

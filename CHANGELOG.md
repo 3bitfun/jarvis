@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 1.3.2 — 2026-11-02
+
+- Connected Alt+Space quick chat and app search to the desktop pet, with Markdown reply bubbles.
+- Added pet controls for chat, model settings, memory, cancellation and positioning, plus clearer model status.
+- Added release notes, cancellable downloads and an explicit install step with installer verification.
+- Added an option to edit earlier messages in the composer as a new turn.
+
 ## 1.3.1 — 2026-11-02
 
 - Added an optional draggable desktop pet with quick-chat click, context menu, ready/working status and saved position.

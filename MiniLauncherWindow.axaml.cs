@@ -24,6 +24,7 @@ public partial class MiniLauncherWindow : Window
     private PetPillState _state = PetPillState.Idle;
     private PixelRect _workArea = new(0, 0, 1920, 1080);
     private double _scale = 1;
+    private Window? _petAnchor;
     private bool _movingInput, _replyReady;
     private readonly DispatcherTimer _statusTimer = new() { Interval = TimeSpan.FromSeconds(2) };
     private bool _busy, _closed, _ready;
@@ -49,16 +50,17 @@ public partial class MiniLauncherWindow : Window
         };
         Closed += (_, _) => { _closed = true; _morph.Stop(); _statusTimer.Stop(); _markdown?.Dispose(); _icons.Dispose(); };
     }
-    public void Toggle(Window main)
+    public void Toggle(Window main, bool anchorToPet = false)
     {
         if (IsVisible)
         {
-            if (_state == PetPillState.Idle) ExpandInput();
-            else { SetPillState(PetPillState.Idle); FocusIdle(); }
+            Hide();
             return;
         }
+        _petAnchor = anchorToPet ? main : null;
         var screen = main.Screens.ScreenFromWindow(main) ?? main.Screens.Primary;
         if (screen is not null) { _workArea = screen.WorkingArea; _scale = screen.Scaling; }
+        if (_petAnchor is not null) { Show(); Activate(); ExpandInput(); return; }
         SetPillState(PetPillState.Idle);
         Show(); Activate(); FocusIdle();
         _morph.Stop();
@@ -94,7 +96,15 @@ public partial class MiniLauncherWindow : Window
         Width = Math.Min(idle ? 344 : 560, areaWidth - 24);
         var desiredHeight = idle ? 72 : state == PetPillState.Reply ? 400 : Math.Clamp(218 + _visible.Length * 46, 300, 470);
         Height = Math.Min(desiredHeight, areaHeight - 48);
-        Position = new PixelPoint(_workArea.X + (_workArea.Width - (int)(Width * _scale)) / 2, _workArea.Y + (int)(16 * _scale));
+        if (_petAnchor is not null)
+        {
+            var width = (int)(Width * _scale); var height = (int)(Height * _scale);
+            var x = Math.Clamp(_petAnchor.Position.X + (int)(_petAnchor.Width * _scale / 2) - width / 2, _workArea.X, Math.Max(_workArea.X, _workArea.Right - width));
+            var above = _petAnchor.Position.Y - height - (int)(8 * _scale);
+            var y = above >= _workArea.Y ? above : Math.Min(_petAnchor.Position.Y + (int)(_petAnchor.Height * _scale) + (int)(8 * _scale), _workArea.Bottom - height);
+            Position = new PixelPoint(x, Math.Max(_workArea.Y, y));
+        }
+        else Position = new PixelPoint(_workArea.X + (_workArea.Width - (int)(Width * _scale)) / 2, _workArea.Y + (int)(16 * _scale));
         PillShell.CornerRadius = new CornerRadius(idle ? 28 : 20);
         PetBody.IsVisible = !idle;
         PetStatus.Text = _busy ? "Thinking…" : _petStatus();

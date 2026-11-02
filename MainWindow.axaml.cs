@@ -160,19 +160,21 @@ public partial class MainWindow : Window
     { _mini?.Hide(); if (!IsVisible) Show(); SetMode(HudMode.EXPANDED_DECK); Activate(); PromptBox.Focus(); }
     private void ToggleQuickBar()
     {
+        if (!_config.PetEnabled && _petEnabled is not null) _petEnabled.IsChecked = true;
         _mini ??= new MiniLauncherWindow(async text =>
         {
             if (_busy) return "J.A.R.V.I.S. is working on another request. Try again shortly.";
             if (IsWorkRoutineRequest(text))
             {
-                var routineReply = await StartWorkRoutineAsync(); _engine.RecordAction(text, routineReply); ShowConversation(); RefreshChats(); return routineReply;
+                var routineReply = await StartWorkRoutineAsync(); _engine.RecordAction(text, routineReply); ShowConversation(); RefreshChats(); ShowPetReply(routineReply); return routineReply;
             }
             var count = _engine.Conversation.Count;
             await SendAsync(text, true);
-            return _engine.Conversation.Count > count ? _engine.Conversation.Last().Assistant : StatusText.Text ?? "Request did not complete.";
+            var reply = _engine.Conversation.Count > count ? _engine.Conversation.Last().Assistant : StatusText.Text ?? "Request did not complete.";
+            ShowPetReply(reply); return reply;
         }, OpenFullDeck, () => (_config.ActiveProvider == "Local" ? "Local AI" : _config.ActiveProvider) + " · " + (_busy ? "Working…" : (_config.ActiveProvider == "Local" && _engine.ActiveModelPath is null ? "Choose a model" : "Ready")), _launcher);
         if (_mode == HudMode.MINIMIZED_ORB && IsVisible) Hide();
-        _mini.Toggle(this);
+        _mini.Toggle(_desktopPet is { IsVisible: true } ? _desktopPet : this, _desktopPet is { IsVisible: true });
     }
     private void Hide_Click(object? s, RoutedEventArgs e) => Hide();
     private void SetMode(HudMode next)
@@ -447,13 +449,21 @@ public partial class MainWindow : Window
         if (!string.IsNullOrEmpty(raw))
         {
             var copy = new Button { Content = AppIcon.Label("copy", "Copy"), Padding = new Thickness(8, 3), FontSize = 11 };
-            copy.Classes.Add("quiet"); Grid.SetColumn(copy, 1);
+            copy.Classes.Add("quiet");
             copy.Click += async (_, _) =>
             {
                 try { if (Clipboard is not null) { await Clipboard.SetTextAsync(raw); StatusText.Text = "Copied to clipboard"; } }
                 catch (Exception) { StatusText.Text = "Clipboard unavailable"; }
             };
-            header.Children.Add(copy);
+            var actions = new StackPanel { Orientation = Avalonia.Layout.Orientation.Horizontal, Spacing = 4 };
+            if (user)
+            {
+                var edit = new Button { Content = "Edit in composer", Padding = new Thickness(8, 3), FontSize = 11 };
+                edit.Classes.Add("quiet");
+                edit.Click += (_, _) => { if (_busy) return; PromptBox.Text = raw; PromptBox.Focus(); PromptBox.CaretIndex = raw.Length; StatusText.Text = "Edit the message and send it as a new turn."; };
+                actions.Children.Add(edit);
+            }
+            actions.Children.Add(copy); Grid.SetColumn(actions, 1); header.Children.Add(actions);
         }
         content.Children.Add(header); content.Children.Add(body);
         ChatLog.Children.Add(new Border { Child = content, Padding = new Thickness(20), CornerRadius = new CornerRadius(14),
